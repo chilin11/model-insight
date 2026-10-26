@@ -1,7 +1,10 @@
 import type { Article, ArticleChart, ArticleTable } from './content'
 import { lazy, Suspense } from 'react'
-// Markdown and syntax highlighting load only for articles that use them.
-const MarkdownBody = lazy(() => import('./MarkdownBody'))
+// The direct article route preloads this module before replacing readable server HTML.
+let LoadedMarkdownBody: typeof import('./MarkdownBody').default | null = null
+const loadMarkdown = () => import('./MarkdownBody').then(module => { LoadedMarkdownBody = module.default; return module })
+const MarkdownBody = lazy(loadMarkdown)
+export async function prepareArticleMarkdown(article?: Article) { if (article?.body) await loadMarkdown() }
 import './article-content.css'
 
 function DataTable({ table }: { table: ArticleTable }) {
@@ -27,11 +30,12 @@ function DataChart({ chart }: { chart: ArticleChart }) {
 }
 const sourceLabels = { official: '官方资料', benchmark: '独立评测', community: '社区原帖' }
 export default function ArticleContent({ article }: { article: Article }) {
+  const Body = LoadedMarkdownBody || MarkdownBody
   return <>
     {article.status !== 'published' ? <p className="reader-preview">草稿预览，尚未发布。请核验事实、表格和来源后再发布。</p> : <div className="article-provenance"><p>{article.eventNote}</p><p>本文发布：{article.publishedAt} · 资料核验：{article.verifiedAt}（UTC）</p><p>根据下列公开资料撰写，非本站产品实测。价格、开放状态及帖子内容可能变化。</p></div>}
     {article.takeaway && <aside className="takeaway"><span className="key-label">先看结论</span><p>{article.takeaway}</p></aside>}
     {article.image && <figure className="article-image"><img src={article.image.url} alt={article.image.alt} loading="lazy" referrerPolicy="no-referrer" />{article.image.caption && <figcaption>{article.image.caption}</figcaption>}</figure>}
-    {article.body && <Suspense fallback={<p className="markdown-loading" role="status">正在加载正文…</p>}><MarkdownBody body={article.body} /></Suspense>}
+    {article.body && <Suspense fallback={<p className="markdown-loading" role="status">正在加载正文…</p>}><Body body={article.body} /></Suspense>}
     {article.sections.map((section, index) => <section className="reader-section" key={section.heading}>
       <span className="reader-section-number">{String(index + 1).padStart(2, '0')}</span><h3>{section.heading}</h3>
       {section.text.split('\n\n').map((paragraph, i) => <p key={i}>{paragraph}</p>)}

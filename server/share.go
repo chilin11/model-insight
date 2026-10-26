@@ -1,21 +1,14 @@
 package main
 
 import (
-	"bytes"
 	"encoding/xml"
-	"html"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
-	"strings"
 	"time"
 )
-
-var titleTag = regexp.MustCompile(`(?s)<title>.*?</title>`)
-var descriptionTag = regexp.MustCompile(`<meta name="description"[^>]*>`)
 
 func (s *Store) published(id string) (Article, bool) {
 	s.mu.RLock()
@@ -80,55 +73,12 @@ func siteBase(r *http.Request) string {
 }
 
 func (app *App) serveSharePage(w http.ResponseWriter, r *http.Request, id string) {
-	f, err := openRegular(app.webDir, "index.html")
-	if err != nil {
-		apiError(w, 404, "not found")
-		return
-	}
-	defer f.Close()
-	var buf bytes.Buffer
-	if _, err = buf.ReadFrom(f); err != nil {
-		apiError(w, 500, "unable to read page")
-		return
-	}
-	page := buf.String()
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-cache")
 	a, ok := app.store.published(id)
 	if !ok {
-		w.WriteHeader(404)
-		_, _ = w.Write([]byte(page))
+		app.serveSEOPage(w, r, nil, true)
 		return
 	}
-	base := siteBase(r)
-	url := base + "/a/" + id
-	e := html.EscapeString
-	meta := []string{
-		`<meta name="description" content="` + e(a.Description) + `" />`,
-		`<link rel="canonical" href="` + e(url) + `" />`,
-		`<meta property="og:type" content="article" />`,
-		`<meta property="og:site_name" content="模型智见" />`,
-		`<meta property="og:title" content="` + e(a.Title) + `" />`,
-		`<meta property="og:description" content="` + e(a.Description) + `" />`,
-		`<meta property="og:url" content="` + e(url) + `" />`,
-	}
-	card := "summary"
-	if a.Image != nil {
-		image := a.Image.URL
-		if strings.HasPrefix(image, "/") {
-			image = base + image
-		}
-		meta = append(meta, `<meta property="og:image" content="`+e(image)+`" />`, `<meta name="twitter:image" content="`+e(image)+`" />`)
-		card = "summary_large_image"
-	}
-	if a.PublishedAt != "" {
-		meta = append(meta, `<meta property="article:published_time" content="`+e(a.PublishedAt)+`" />`)
-	}
-	meta = append(meta, `<meta name="twitter:card" content="`+card+`" />`, `<meta name="twitter:title" content="`+e(a.Title)+`" />`, `<meta name="twitter:description" content="`+e(a.Description)+`" />`)
-	page = descriptionTag.ReplaceAllString(page, "")
-	page = titleTag.ReplaceAllLiteralString(page, "<title>"+e(a.Title)+" · 模型智见</title>")
-	page = strings.Replace(page, "</head>", strings.Join(meta, "\n    ")+"\n  </head>", 1)
-	_, _ = w.Write([]byte(page))
+	app.serveSEOPage(w, r, &a, false)
 }
 
 type rssItem struct {

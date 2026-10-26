@@ -26,6 +26,9 @@ func jsonResponse(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 func apiError(w http.ResponseWriter, status int, message string) {
+	if status == http.StatusNotFound && w.Header().Get("X-Robots-Tag") == "" {
+		w.Header().Set("X-Robots-Tag", "noindex")
+	}
 	jsonResponse(w, status, map[string]string{"error": message})
 }
 func decodeRequest(w http.ResponseWriter, r *http.Request, v any) bool {
@@ -53,6 +56,9 @@ func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
 	p := r.URL.Path
+	if p == "/admin" || strings.HasPrefix(p, "/admin/") || p == "/api" || strings.HasPrefix(p, "/api/") || p == "/healthz" {
+		w.Header().Set("X-Robots-Tag", "noindex, nofollow")
+	}
 	if strings.Contains(p, "\\") || strings.ContainsRune(p, 0) || path.Clean(p) != p {
 		apiError(w, 404, "not found")
 		return
@@ -69,6 +75,14 @@ func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")
 		_, _ = w.Write([]byte("ok\n"))
+		return
+	}
+	if p == "/sitemap.xml" {
+		app.serveSitemap(w, r)
+		return
+	}
+	if p == "/robots.txt" {
+		app.serveRobots(w, r)
 		return
 	}
 	if p == "/rss.xml" {

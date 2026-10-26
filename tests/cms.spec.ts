@@ -154,7 +154,8 @@ test('admin editor fits 320px through desktop widths and keeps old figures in pr
 test('production API failures never replace server content with bundled seed', async ({ page }) => {
   await page.route('**/api/articles', route => route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"unavailable"}' }))
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: '暂时无法读取文章' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '互动界面暂时不可用' })).toBeVisible()
+  await expect(page.locator('#server-content[data-page="home"]')).toContainText('模型智见')
   await expect(page.locator('.article-card')).toHaveCount(0)
 })
 

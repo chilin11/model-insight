@@ -1,6 +1,6 @@
 # 模型智见 · Model Insight
 
-一个文字优先、带写作后台和 AI 草稿 API 的 AI 模型资讯网站。React + TypeScript 前端，Go 标准库后端。**无 Docker、无数据库、无 Nginx/Node 常驻要求**；低配 VPS 只运行一个 Go 进程。
+一个文字优先、带写作后台和 AI 草稿 API 的 AI 模型资讯网站。React + TypeScript 前端，Go 后端（安全 Markdown 直出）。**无 Docker、无数据库、无 Nginx/Node 常驻要求**；低配 VPS 只运行一个 Go 进程。
 
 ## 日常使用
 
@@ -10,12 +10,13 @@
 - **访问统计**：后台看今日/累计访问与阅读、7/30/90 天趋势、文章排行；匿名汇总，不设追踪 Cookie，不存访客身份，不把次数冒充 UV 或点击率。
 - 新稿使用 Markdown：编辑器工具栏一键插入标题、链接、引用、提示框、代码块（语法高亮 + 复制按钮）、表格、脚注；截图可直接粘贴或拖入上传，支持分屏实时预览。
 - **分享**：每篇文章有带社交预览卡片的链接 `/a/<id>`；读者可复制链接、系统分享、微信扫码、微博、X、Telegram、邮件。另有 RSS `/rss.xml`。
+- **搜索基础**：首页与文章初始 HTML 已含真实目录和完整正文，无 JavaScript 也能阅读；动态 `/sitemap.xml`、`/robots.txt`、canonical/JSON-LD 与草稿 404/noindex。搜索平台验证及提交见 [搜索说明](docs/SEARCH.md)，不保证收录或排名。
 - **评论**：读者无需注册即可评论，**命中的敏感词/隐私片段自动用星号遮盖后直接公开**；后台「评论管理」可撤下、脱敏后恢复、删除或处理旧评论，单篇可关闭评论。轻量本地规则而非完整语义审核；有限流和防垃圾字段，IP 不落盘。
 - 草稿可删除；已发布文章需先撤回。
 - 修改、发布、撤回、设置头条立即写入服务端；**不需要改源码或重新部署**。已打开的读者页面刷新后看到更新。
 - 支持版本冲突提示、未保存提醒、当前稿 JSON 导出和 Cmd/Ctrl + S 保存。
 
-👉 [固定发稿方法（本站域名与批量命令）](docs/PUBLISHING.md) · [快速写作说明](docs/WRITING.md) · [AI / 管理 API](docs/API.md) · [部署、升级与备份](DEPLOY.md)
+👉 [固定发稿方法（本站域名与批量命令）](docs/PUBLISHING.md) · [快速写作说明](docs/WRITING.md) · [AI / 管理 API](docs/API.md) · [部署、升级与备份](DEPLOY.md) · [搜索抓取与提交](docs/SEARCH.md)
 
 ## 一键部署 / 更新（systemd Linux）
 
@@ -28,7 +29,7 @@ curl -fsSL https://raw.githubusercontent.com/chilin11/model-insight/main/install
 脚本从 GitHub Release 下载最新部署包，校验 SHA256 和包内文件清单后执行 `deploy.sh`，自动识别 amd64 / arm64。**以后更新再运行同一条命令即可**，文章、评论、图片和密钥都会保留。
 
 - 首次指定端口：`curl -fsSL …/install.sh | sudo bash -s -- --port 8288`
-- 安装指定版本：`curl -fsSL …/install.sh | sudo MODEL_INSIGHT_VERSION=v0.2.3 bash`
+- 安装指定版本：`curl -fsSL …/install.sh | sudo MODEL_INSIGHT_VERSION=vX.Y.Z bash`（替换为已核验的实际 Release tag）
 - 只下载校验、不部署：`… | sudo MODEL_INSIGHT_DRY_RUN=1 bash`
 
 默认监听 `127.0.0.1:8188`，将宿主机上的 cloudflared 源站指向 `http://127.0.0.1:8188`（保留原始 Host），通过公网 HTTPS 访问。首次部署会生成管理员和 AI 两个不同的密钥：
@@ -44,7 +45,7 @@ sudo sed -n 's/^API_TOKEN=//p' /etc/model-insight.env     # AI 接入
 
 ```sh
 npm ci
-GO_BIN=/path/to/go bash scripts/release.sh v0.2.2   # 构建前端与 Linux 二进制，上传 Release（含 install.sh）
+GO_BIN=/path/to/go bash scripts/release.sh vX.Y.Z   # 替换为下一个版本；构建前端与 Linux 二进制，上传 Release
 ```
 
 发布前须已提交并推送 main。VPS 再跑一次安装命令即可升级到这个版本。
@@ -86,7 +87,7 @@ export LISTEN_ADDR=127.0.0.1:8188
 npm run build
 npx playwright install chromium
 npm run test:e2e                 # 前台桌面 / 手机回归，5188
-npm run test:cms                 # 真后端 + 生产前端，独立临时数据，8198
+npm run test:cms                 # 真后端 + 生产前端，含无 JS/SEO 测试，临时数据，8198
 (cd server && go test -race ./...)
 (cd server && go vet ./...)
 ```
@@ -98,6 +99,6 @@ Go 不在 PATH 时可为 CMS 测试传入 `GO_BIN=/绝对路径/go`。部署脚�
 - AI token 只建草稿，不能使用管理员 API、发布或覆盖旧稿；不绑定 AI 厂商，不在 VPS 上常驻大模型。
 - 管理员密钥建立 8 小时 HttpOnly / SameSite=Strict 会话，不存 localStorage。公网后台必须走 HTTPS；密钥只放服务端。
 - Markdown 不执行 HTML；链接协议受限；上传拒绝 SVG/HTML，最多 5 MiB。
-- 文章链接为 `/#read/<id>`；搜索、分类、收藏、阅读进度、下一篇和响应式排版保留。
+- 抓取/分享使用 `/a/<id>`，旧 `/#read/<id>` 仍兼容；搜索、分类、收藏、阅读进度、下一篇和响应式排版保留。
 - 收藏只在当前浏览器存储，沿用 `a-little-new:bookmarks`；邮箱意向沿用 `a-little-new:newsletter-email`，**未接邮件服务，不发送邮件**。
-- 不包含公开注册、多人权限、评论、自动定时发布或模型调用计费。基础设施可能记录访问日志；外部来源/图片适用原站隐私规则。
+- 不包含公开注册、多人权限、自动定时发布或模型调用计费。基础设施可能记录访问日志；外部来源/图片适用原站隐私规则。

@@ -69,8 +69,21 @@ func serveRegular(w http.ResponseWriter, r *http.Request, root, relative string)
 	http.ServeContent(w, r, relative, st.ModTime(), f)
 }
 func (app *App) serveWeb(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/" {
+		app.serveSEOPage(w, r, nil, false)
+		return
+	}
+	if r.URL.Path == "/index.html" {
+		location := "/"
+		if r.URL.RawQuery != "" {
+			location += "?" + r.URL.RawQuery
+		}
+		w.Header().Set("Cache-Control", "no-cache")
+		http.Redirect(w, r, location, http.StatusMovedPermanently)
+		return
+	}
 	relative := strings.TrimPrefix(r.URL.Path, "/")
-	if r.URL.Path == "/" || r.URL.Path == "/admin" {
+	if r.URL.Path == "/admin" {
 		relative = "index.html"
 	}
 	if strings.HasSuffix(relative, ".html") {

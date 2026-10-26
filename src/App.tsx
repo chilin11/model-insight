@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type K
 import { ArrowDown, ArrowRight, ArrowUp, ArrowUpRight, Bookmark, Check, Copy, FileText, Hash, Mail, Menu, Rss, Search, Share2, SlidersHorizontal, X } from 'lucide-react'
 import { categories, models, type Article, type Category, type ModelFilter } from './content'
 import type { Publication } from './api'
+import { updatePublicMeta } from './seo'
 import ArticleContent from './ArticleContent'
 import Comments from './Comments'
 import SharePanel, { shareURL } from './SharePanel'
@@ -25,7 +26,7 @@ function readEmail(): string {
   try { return localStorage.getItem(NEWSLETTER_KEY) || '' } catch { return '' }
 }
 // In-app reading uses #read/<id>; shared links use the server-rendered /a/<id> page.
-function articleFromHash(allArticles: Article[]) {
+export function articleFromHash(allArticles: Article[]) {
   const fromHash = allArticles.find(article => window.location.hash === `#read/${article.id}`)
   if (fromHash || window.location.hash.startsWith('#read/')) return fromHash
   const match = /^\/a\/([a-z0-9-]+)$/.exec(window.location.pathname)
@@ -88,6 +89,7 @@ function App({ publication }: { publication: Publication }) {
   const isOpen = overlay !== null
   const activeArticle = overlay?.kind === 'article' ? overlay.article : null
   useReadStats(activeArticle?.id)
+  useEffect(() => { updatePublicMeta(activeArticle) }, [activeArticle])
   const filtered = articles.filter(article => (category === '全部' || article.category === category) && (model === '全部模型' || article.model === model))
   const searchTerms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean)
   const searchResults = allArticles.filter(article => {
@@ -269,7 +271,7 @@ function App({ publication }: { publication: Publication }) {
     return <button className={`icon-button bookmark-button ${isSaved ? 'is-saved' : ''} ${extraClass}`} aria-label={`${isSaved ? '取消收藏' : '收藏'}：${article.title}`} aria-pressed={isSaved} onClick={() => toggleSaved(article)}><Bookmark size={18} fill={isSaved ? 'currentColor' : 'none'} /></button>
   }
   function readProps(article: Article) {
-    return { href: `#read/${article.id}`, onClick: (event: ReactMouseEvent) => { event.preventDefault(); openArticle(article) } }
+    return { href: `/a/${article.id}`, onClick: (event: ReactMouseEvent) => { if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); openArticle(article) } }
   }
   function renderCard(article: Article, index: number) {
     return <article className="article-card" key={article.id} data-reveal style={{ '--reveal-delay': `${(index % 3) * 70}ms` } as CSSProperties}>

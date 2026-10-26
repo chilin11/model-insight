@@ -18,7 +18,7 @@ curl -fsSL https://raw.githubusercontent.com/chilin11/model-insight/main/install
 参数说明：
 
 - 选项会原样传给 `deploy.sh`，例如 `| sudo bash -s -- --port 8288`。
-- `MODEL_INSIGHT_VERSION=v0.2.3` 安装指定版本，可用于回到旧版。
+- `MODEL_INSIGHT_VERSION=vX.Y.Z` 安装指定版本；替换为同 schema、已核验的真实 Release tag。
 - `MODEL_INSIGHT_DRY_RUN=1` 只下载和校验，不部署。
 
 更新时再次运行同一条命令即可。已有的 env、文章、评论和图片都会保留，部署失败时会自动恢复旧版本。
@@ -150,9 +150,15 @@ curl -fsS http://127.0.0.1:8188/healthz
 
 自定义目录参数 `--app-dir`、`--data-dir` 必须以 `/model-insight` 结尾且互不嵌套；`--env-file`、`--systemd-dir` 用于自定义系统/沙盒，首次之后必须保持一致。不可选 home 私有目录（ProtectHome）；生产使用默认路径。
 
+## 搜索抓取验收
+
+首页和已发布文章由 Go 直接输出完整 HTML，再渐进增强为互动界面；不需新增进程。`/sitemap.xml`、`/robots.txt` 动态生成，元数据/结构化数据只用公开稿；草稿、未知和撤回稿返回真正的 404 + noindex。HTML、sitemap、robots 不应被边缘长期缓存；`/admin`、`/api/`、`/healthz` 带 noindex，不改变原认证。
+
+升级后从公网核对正文源码、sitemap 和 Cloudflare 最终 robots 输出，再由站长验证并提交到 Google/Bing。cloudflared 必须保留公网 Host，避免 canonical/sitemap 指向 localhost。具体命令与账号验证边界见 [搜索抓取与站长平台](docs/SEARCH.md)。发版不代表 VPS 已升级，也不代表已收录。
+
 ## HTTP 接口与安全约定
 
-所有错误为 JSON `{ "error": "…" }`；不支持 CORS。JSON 请求最多 2 MiB、Markdown body 最多 150 KiB、文章最多 5000；无删除接口。ID 为 `^[a-z0-9][a-z0-9-]{0,79}$`，重复 ID 或旧 revision 为 409。发布须标题、摘要、Markdown 或非空 sections、合法来源、publishedAt/verifiedAt；日期支持 YYYY-MM-DD / RFC3339。草稿允许空标题/正文，类别/模型可暂空；非空时仍严格枚举。来源仅 http/https、无 userinfo；封面只安全 `/media/<filename>.png|jpg|jpeg|gif` 或 https、无 userinfo。后端不联网下载。
+API 错误为 JSON `{ "error": "…" }`，文章缺失页为 HTML 404；不支持 CORS。JSON 请求最多 2 MiB、Markdown body 最多 150 KiB、文章最多 5000；仅草稿可删除。ID 为 `^[a-z0-9][a-z0-9-]{0,79}$`，重复 ID 或旧 revision 为 409。发布须标题、摘要、Markdown 或非空 sections、合法来源、publishedAt/verifiedAt；日期支持 YYYY-MM-DD / RFC3339。草稿允许空标题/正文，类别/模型可暂空；非空时仍严格枚举。来源仅 http/https、无 userinfo；封面只安全 `/media/<filename>.png|jpg|jpeg|gif` 或 https、无 userinfo。后端不联网下载。
 
 | 接口 | 鉴权 / 结果 |
 | --- | --- |
@@ -184,7 +190,7 @@ bash tests/deploy.test.sh
 
 后端覆盖鉴权/CSRF、草稿隔离、发布编辑、并发 revision、写失败、重载保留、坏存储、图片与路径；部署测试全部使用 scratch 中 mock Linux/systemd/二进制，不需要 root，不创建系统用户、不运行本机服务。**mock 通过不等于已在 VPS 验收**；首次真实 Linux 安装仍需管理员执行 health/API/后台验收。
 
-GitHub：源码仓库与部署附件分离，默认私有；仅在全部内容/测试稳定且明确授权后初始化提交、创建私有仓库及上传 Release 附件。发布前人工检查所有待上传文件无 env、content.json、media、密钥、依赖、研究原文；`.gitignore` 不是保密审查替代。不要把 VPS 生成的配置塞回部署包。
+GitHub：公开源码仓库与部署附件分离。发布前人工检查所有待上传文件无 env、content.json、media、密钥、依赖、研究原文；`.gitignore` 不是保密审查替代。不要把 VPS 生成的配置塞回部署包。
 
 卸载仅停本站并保留全部数据：核验 unit 所有权后 `sudo systemctl disable --now model-insight.service`，移除这个 unit 再 daemon-reload；归档 `/etc/model-insight.env`、`/opt/model-insight`、`/var/lib/model-insight`，不要删除其他服务/用户/目录。不自动移除专用用户/数据，避免误删。
 

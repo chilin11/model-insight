@@ -1,6 +1,6 @@
 # AI 与写作 API
 
-所有接口与网页同源，无 CORS。JSON 错误统一为 `{"error":"说明"}`。公网请求必须走 HTTPS。
+所有接口与网页同源，无 CORS。API JSON 错误统一为 `{"error":"说明"}`；文章缺失页是 HTML 404。公网请求必须走 HTTPS。
 
 ## AI：新增草稿
 
@@ -59,11 +59,15 @@ curl --fail-with-body "$SITE_URL/api/ingest/articles" \
 
 `GET /api/articles` → `{"articles":[已发布文章],"featuredId":"头条id"}`。不返回草稿。网站按 `publishedAt` 倒序展示（同日保持存储顺序），新发布的文章会排在前面；撤回头条后服务端选择其余已发布稿件。`GET /healthz` 为存活检查。
 
-## 分享页与 RSS
+## 公开页面、搜索与 RSS
 
-- `GET /a/{id}`：已发布文章的分享页。返回网站页面，并写入该文章的 `<title>`、description、Open Graph / Twitter Card（标题、摘要、配图、规范链接），前端自动打开文章。草稿或不存在返回 404，不泄露元数据。
-- `GET /rss.xml`：RSS 2.0，最新 30 篇已发布文章，按 `publishedAt` 倒序。
-- 站点地址由请求 Host 推导：本机地址用 http，其余用 https（`X-Forwarded-Proto` 可覆盖）。cloudflared 需保留原始 Host。
+- `GET/HEAD /`：初始 HTML 列全部已发布文章的真实 `/a/{id}` 链接、标题、摘要和日期；空内容库诚实显示空状态。
+- `GET/HEAD /a/{id}`：已发布文章的完整可读 HTML，含 Markdown/旧版段落、表格/图表数值、资料来源及元数据；JavaScript 取得真实数据及正文模块后增强为互动阅读，失败保留正文。草稿、不存在和已撤回返回 404 + noindex，通用提示不泄露元数据。
+- 首页/文章提供唯一 title、description、canonical、OG/Twitter 和 JSON-LD（WebSite/Organization/Article/BreadcrumbList）；canonical 不带 query/hash，不编造作者、评分或日期。对所有 UA 返回相同正文。
+- `GET/HEAD /sitemap.xml`：XML，仅首页和已发布文章；动态反映发布/修改/撤回，lastmod 取实际 updatedAt/publishedAt，不用 verifiedAt 或请求时间。
+- `GET/HEAD /robots.txt`：允许公开抓取，禁止 `/admin`、`/api/`、`/healthz`，指向绝对 sitemap；不禁止 assets/media。私有路由另带 noindex/nofollow，所有普通 404 带 noindex；不替代身份认证。
+- `GET/HEAD /index.html`：301 到 `/`，保留 query；`GET /rss.xml`：RSS 2.0，最新 30 篇已发布文章，按 publishedAt 倒序。
+- 站点地址由请求 Host 推导：本机地址用 http，其余用 https（`X-Forwarded-Proto` 可覆盖）。cloudflared 需保留原始 Host。搜索平台验证、提交及 Cloudflare 公网验收见 [搜索说明](SEARCH.md)。
 
 ## 读者评论
 
