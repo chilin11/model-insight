@@ -5,12 +5,12 @@
 ## 0. 一键安装 / 更新
 
 ```sh
-curl -fsSL https://github.com/chilin11/model-insight/releases/latest/download/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/chilin11/model-insight/main/install.sh | sudo bash
 ```
 
 `install.sh` 会做这几件事：
 
-1. 从最新 Release 下载 `model-insight-vps.tar.gz` 和 `.sha256`。
+1. 查询最新 Release 的版本号，从**同一版本**下载 `model-insight-vps.tar.gz` 和 `.sha256`（不会把不同版本的文件混在一起）。
 2. 校验 SHA256，拒绝包含绝对路径或 `..` 的压缩包。
 3. 解压到 `/var/tmp` 下的新临时目录，然后用 `validate-dist.sh` 校验 SHA256SUMS。
 4. 执行 `deploy.sh`，完成后删除临时目录。
@@ -18,7 +18,7 @@ curl -fsSL https://github.com/chilin11/model-insight/releases/latest/download/in
 参数说明：
 
 - 选项会原样传给 `deploy.sh`，例如 `| sudo bash -s -- --port 8288`。
-- `MODEL_INSIGHT_VERSION=v0.2.1` 安装指定版本，可用于回到旧版。
+- `MODEL_INSIGHT_VERSION=v0.2.3` 安装指定版本，可用于回到旧版。
 - `MODEL_INSIGHT_DRY_RUN=1` 只下载和校验，不部署。
 
 更新时再次运行同一条命令即可。已有的 env、文章、评论和图片都会保留，部署失败时会自动恢复旧版本。

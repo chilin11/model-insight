@@ -21,7 +21,7 @@ gh release create "$TAG" release/model-insight-vps.tar.gz release/model-insight-
   --notes "VPS 一键安装 / 更新：
 
 \`\`\`sh
-curl -fsSL https://github.com/$(gh repo view --json nameWithOwner -q .nameWithOwner)/releases/latest/download/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/$(gh repo view --json nameWithOwner -q .nameWithOwner)/main/install.sh | sudo bash
 \`\`\`
 
 安装脚本会下载部署包、校验 SHA256 后执行 deploy.sh。文章、评论、图片和密钥在更新时保留。"

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # 模型智见一键安装 / 更新（Linux + systemd，无 Docker / Nginx / Node）。
 #
-#   curl -fsSL https://github.com/chilin11/model-insight/releases/latest/download/install.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/chilin11/model-insight/main/install.sh | sudo bash
 #
 # 额外参数会传给 deploy.sh，例如首次指定端口：
 #   curl -fsSL …/install.sh | sudo bash -s -- --port 8288
-# 指定版本：MODEL_INSIGHT_VERSION=v0.2.1；只下载校验不部署：MODEL_INSIGHT_DRY_RUN=1。
+# 指定版本：MODEL_INSIGHT_VERSION=v0.2.3；只下载校验不部署：MODEL_INSIGHT_DRY_RUN=1。
 # 再次运行即更新到最新版；文章、评论、图片和密钥保留在 /var/lib/model-insight 与 /etc/model-insight.env。
 #
 # Everything lives in main(), so bash parses the whole script before running it

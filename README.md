@@ -21,13 +21,13 @@
 在 VPS 上直接运行（需要 root 权限，不需要 Docker、Node、Go 或数据库）：
 
 ```sh
-curl -fsSL https://github.com/chilin11/model-insight/releases/latest/download/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/chilin11/model-insight/main/install.sh | sudo bash
 ```
 
 脚本从 GitHub Release 下载最新部署包，校验 SHA256 和包内文件清单后执行 `deploy.sh`，自动识别 amd64 / arm64。**以后更新再运行同一条命令即可**，文章、评论、图片和密钥都会保留。
 
 - 首次指定端口：`curl -fsSL …/install.sh | sudo bash -s -- --port 8288`
-- 安装指定版本：`curl -fsSL …/install.sh | sudo MODEL_INSIGHT_VERSION=v0.2.1 bash`
+- 安装指定版本：`curl -fsSL …/install.sh | sudo MODEL_INSIGHT_VERSION=v0.2.3 bash`
 - 只下载校验、不部署：`… | sudo MODEL_INSIGHT_DRY_RUN=1 bash`
 
 默认监听 `127.0.0.1:8188`，将宿主机上的 cloudflared 源站指向 `http://127.0.0.1:8188`（保留原始 Host），通过公网 HTTPS 访问。首次部署会生成管理员和 AI 两个不同的密钥：
