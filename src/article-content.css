@@ -1,0 +1,45 @@
+.article-provenance { margin: -6px 0 24px; padding: 14px 0; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 13px; line-height: 1.8; }
+.article-provenance p { margin: 0 0 4px; }
+.reader-section > p + p { margin-top: 18px; }
+.section-citations { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 14px; color: var(--muted); font-size: 13px; }
+.section-citations a { color: var(--blue); padding: 3px 5px; }
+.section-citations a:hover { text-decoration: underline; }
+.data-figure { margin: 24px 0; min-width: 0; }
+.data-figure figcaption { margin-top: 12px; color: var(--muted); font-size: 13px; line-height: 1.85; }
+.table-scroll { max-width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; scrollbar-width: thin; }
+.table-scroll table { width: 100%; min-width: 490px; border-collapse: collapse; text-align: left; font-size: 14px; line-height: 1.7; }
+.table-scroll caption { padding: 14px 16px; background: var(--ink); color: white; text-align: left; font-weight: 700; }
+.table-scroll th, .table-scroll td { padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.table-scroll thead { background: var(--surface); }
+.table-scroll tbody th { font-weight: 600; }
+.table-scroll tbody tr:last-child > * { border-bottom: 0; }
+.table-scroll tbody tr:nth-child(even) { background: #fafbfc; }
+.chart-figure { padding: 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; }
+.chart-figure h4 { margin: 0 0 20px; font-size: 16px; line-height: 1.6; }
+.chart-scale, .chart-row-label { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 14px; line-height: 1.7; }
+.chart-scale { color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--line-strong); margin-bottom: 14px; padding-bottom: 6px; }
+.chart-row { margin: 16px 0; }
+.chart-row-label { margin-bottom: 8px; }
+.chart-row-label strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.chart-row svg { display: block; width: 100%; height: 16px; }
+.source-note ol { list-style: none; padding: 0; margin: 0; }
+@media (max-width: 480px) { .chart-figure { padding: 16px; } .chart-row-label { flex-wrap: wrap; gap: 2px 8px; } .reader-kicker { flex-wrap: wrap; gap: 8px; } }
+.reader-preview { padding: 14px 16px; border: 1px solid #e2cc87; background: #fff9e6; color: #715412; font-size: 14px; line-height: 1.8; }
+.article-image { margin: 28px 0; }
+.article-image img, .markdown-image img { display: block; max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 4px; }
+.article-image figcaption, .markdown-image small { display: block; margin-top: 10px; font-size: 13px; line-height: 1.8; color: var(--muted); }
+.markdown-body { min-width: 0; font-size: 16px; line-height: 1.95; overflow-wrap: anywhere; }
+.markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 { margin: 32px 0 16px; line-height: 1.5; color: var(--ink); }
+.markdown-body h1 { font-size: 29px; } .markdown-body h2 { font-size: 24px; } .markdown-body h3 { font-size: 20px; } .markdown-body h4 { font-size: 18px; }
+.markdown-body p { margin: 0 0 20px; }
+.markdown-body a { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; }
+.markdown-body ul, .markdown-body ol { padding-left: 24px; }
+.markdown-body li { margin: 8px 0; }
+.markdown-body code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; background: var(--surface); padding: 2px 5px; border-radius: 3px; font-size: .88em; }
+.markdown-body pre { padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; overflow-x: auto; max-width: 100%; line-height: 1.8; }
+.markdown-body pre code { padding: 0; background: none; }
+.markdown-body blockquote { margin: 24px 0; padding: 12px 20px; border-left: 3px solid var(--blue); background: var(--surface); font-size: 17px; }
+.markdown-body .table-scroll { margin: 24px 0; }
+.markdown-body hr { border: 0; border-top: 1px solid var(--line); margin: 32px 0; }
+.markdown-image { display: block; margin: 24px 0; }
+@media (max-width: 480px) { .markdown-body h2 { font-size: 22px; } .markdown-body pre { padding: 12px; } }

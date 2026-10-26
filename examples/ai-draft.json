@@ -1,0 +1,19 @@
+{
+  "article": {
+    "id": "replace-with-a-unique-news-id",
+    "status": "draft",
+    "title": "待核验的文章标题",
+    "description": "用一句话说明发生了什么，以及为什么值得关注。",
+    "category": "模型动态",
+    "model": "跨模型",
+    "tone": "industry",
+    "time": 3,
+    "label": "发布解读",
+    "takeaway": "写清最重要的结论，不把厂商说法当独立实测。",
+    "body": "## 发生了什么\n\n这里写 Markdown 正文。\n\n## 需要注意\n\n标注事实与观点的边界。",
+    "sections": [],
+    "quote": "",
+    "sources": [],
+    "eventNote": "请补充实际事件时间与资料口径"
+  }
+}

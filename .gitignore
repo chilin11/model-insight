@@ -1,0 +1,20 @@
+node_modules/
+dist/
+playwright-report/
+test-results/
+.DS_Store
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+release/
+
+# Runtime publishing data and local binaries/secrets (never upload).
+/data/
+/server/data/
+/server/model-insight
+/seed.json
+/server/seed.json
+model-insight.env
+*.test
+coverage.out
