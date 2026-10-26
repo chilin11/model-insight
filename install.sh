@@ -36,9 +36,10 @@ main() {
 
   # /var/tmp rather than /tmp: deploy.sh runs the bundled binary to validate it,
   # and /tmp is often mounted noexec on VPS images.
-  local work
-  work=$(mktemp -d "${TMPDIR:-/var/tmp}/model-insight-install.XXXXXX")
-  trap 'rm -rf "$work"' EXIT
+  # Global (not local): the EXIT trap runs after main() has returned.
+  MODEL_INSIGHT_WORK=$(mktemp -d "${TMPDIR:-/var/tmp}/model-insight-install.XXXXXX")
+  trap 'rm -rf "${MODEL_INSIGHT_WORK:-}"' EXIT
+  local work=$MODEL_INSIGHT_WORK
 
   printf '下载 %s（%s）…\n' "$asset" "$version"
   local fetch=(curl -fsSL --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 --connect-timeout 20)
