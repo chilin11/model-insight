@@ -273,3 +273,18 @@ test('untrusted title and Markdown stay inert and JSON-LD roundtrips after takeo
     expect(errors).toEqual([])
   } finally { await remove(request, article) }
 })
+
+test('Google ownership verification is a public exact static file and supports HEAD', async ({ request }) => {
+  const path = '/google131e838ab93fa6cf.html'
+  const body = 'google-site-verification: google131e838ab93fa6cf.html'
+  const response = await request.get(path, { maxRedirects: 0 })
+  expect(response.status()).toBe(200)
+  expect(response.headers()['content-type']).toContain('text/html')
+  expect(response.headers()['cache-control']).toContain('no-cache')
+  expect(await response.text()).toBe(body)
+  const head = await request.head(path, { maxRedirects: 0 })
+  expect(head.status()).toBe(200)
+  expect(head.headers()['content-length']).toBe(String(Buffer.byteLength(body)))
+  expect(await head.text()).toBe('')
+  expect(await (await request.get('/sitemap.xml')).text()).not.toContain(path)
+})

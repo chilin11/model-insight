@@ -50,7 +50,16 @@ curl -sSI "$SITE/admin" | grep -i x-robots-tag
 4. 使用「网址检查」分别测试首页和一篇文章的实际网址。核对抓取允许、响应 200、可见正文及 canonical；必要时对重要页面请求编入索引，不必每天重复提交。
 5. 后续看「网页索引」和「效果」：有效索引、真实搜索词、展示与点击，比只搜索 `site:` 更可靠。站点访问统计只记录匿名浏览事件，不知道搜索词，也不是搜索点击率。
 
-若选择网址前缀资源，也必须使用平台实际支持且能长期保留的验证方式。不要临时把验证文件塞进 `/opt/model-insight/current/www`：程序更新会替换该目录；需要持久验证文件/标签时再单独接入，不把它当作本次已完成项。
+### 网址前缀资源：HTML 文件验证
+
+本站也支持 Google 的 HTML 文件验证，不必为了验证切换到 DNS 方式：
+
+1. 添加「网址前缀」资源时填写 `https://blogs.chipubliclinks.online/`，**不要填写 sitemap.xml 地址**。
+2. 本站当前验证文件是 `public/google131e838ab93fa6cf.html`，按 Google 下载的原文件保存；构建时复制到网站根目录，并纳入部署包及 SHA256 清单。它是公开验证标记，不是后台密钥。
+3. 在 VPS 用既有一键命令更新网站，然后访问 `https://blogs.chipubliclinks.online/google131e838ab93fa6cf.html`，应直接返回 200 和原始验证文字，而非首页、登录页或 Cloudflare 验证页。
+4. 回 Search Console 点击「验证」。成功后再进入「站点地图」提交 `sitemap.xml`；所有权验证不等于已经收录。
+
+**请长期保留源码中的验证文件。** 不要只临时上传到 `/opt/model-insight/current/www`：部署会替换该目录；放在 `public/` 并随每版构建/打包，才能跨更新保留。以后 Google 如提供另一个验证文件，先确认所属资源并添加新文件，不要无故删除仍在使用的旧文件。
 
 ## Bing Webmaster Tools
 
