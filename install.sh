@@ -30,9 +30,15 @@ main() {
   local hash
   if command -v sha256sum >/dev/null 2>&1; then hash='sha256sum'; elif command -v shasum >/dev/null 2>&1; then hash='shasum -a 256'; else fail '缺少 sha256sum。'; fi
 
-  local base
-  if [[ "$version" == latest ]]; then base="https://github.com/$repo/releases/latest/download"
-  else base="https://github.com/$repo/releases/download/$version"; fi
+  # Resolve "latest" to one concrete tag first, so the package and its checksum
+  # always come from the same release even while GitHub's redirect is updating.
+  if [[ "$version" == latest ]]; then
+    local resolved
+    resolved=$(curl -fsSL --proto '=https' --tlsv1.2 --retry 3 -o /dev/null -w '%{url_effective}' "https://github.com/$repo/releases/latest") || fail '无法查询最新版本。'
+    version=${resolved##*/tag/}
+    [[ "$resolved" == */tag/* && "$version" =~ ^v[0-9A-Za-z._-]+$ ]] || fail "无法识别最新版本（$resolved）。"
+  fi
+  local base="https://github.com/$repo/releases/download/$version"
 
   # /var/tmp rather than /tmp: deploy.sh runs the bundled binary to validate it,
   # and /tmp is often mounted noexec on VPS images.
