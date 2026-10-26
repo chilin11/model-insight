@@ -33,6 +33,23 @@ for script in deploy.sh deploy/validate-dist.sh scripts/package-deploy.sh; do ba
 bash "$STAGE/deploy/validate-dist.sh" "$STAGE" --require-checksums
 mkdir -p release
 [[ ! -L release && ! -L release/model-insight-vps.tar.gz ]] || { printf 'release 路径不允许符号链接。\n' >&2; exit 1; }
-tar -czf "$STAGE/model-insight-vps.tar.gz" -C "$STAGE" bin www seed.json deploy deploy.sh DEPLOY.md SHA256SUMS
+# macOS bsdtar would otherwise add AppleDouble `._*` entries and LIBARCHIVE.xattr
+# headers, which GNU tar on the VPS warns about and validate-dist.sh rejects.
+TAR_OPTS=()
+if tar --version 2>/dev/null | grep -qi bsdtar; then
+  TAR_OPTS=(--format ustar --no-xattrs --no-mac-metadata --no-acls --uid 0 --gid 0 --uname root --gname root)
+  if command -v xattr >/dev/null 2>&1; then xattr -cr "$STAGE" 2>/dev/null || true; fi
+fi
+COPYFILE_DISABLE=1 tar ${TAR_OPTS[@]+"${TAR_OPTS[@]}"} -czf "$STAGE/model-insight-vps.tar.gz" -C "$STAGE" bin www seed.json deploy deploy.sh DEPLOY.md SHA256SUMS
+# bsdtar's own listing hides AppleDouble entries, so inspect raw member names.
+if command -v python3 >/dev/null 2>&1; then
+  python3 - "$STAGE/model-insight-vps.tar.gz" <<'PY' || { printf '部署包含 macOS 元数据或扩展头，已停止。\n' >&2; exit 1; }
+import sys, tarfile
+members = tarfile.open(sys.argv[1]).getmembers()
+bad = [m.name for m in members if '/._' in '/' + m.name or m.name.endswith('.DS_Store') or m.pax_headers]
+sys.exit(1 if bad else 0)
+PY
+elif gzip -dc "$STAGE/model-insight-vps.tar.gz" | LC_ALL=C grep -aq '/\._\|^\._'; then printf '部署包含 macOS 元数据文件，已停止。\n' >&2; exit 1; fi
+if gzip -dc "$STAGE/model-insight-vps.tar.gz" | LC_ALL=C grep -aq 'LIBARCHIVE\.'; then printf '部署包含 macOS 扩展属性头，已停止。\n' >&2; exit 1; fi
 mv -f "$STAGE/model-insight-vps.tar.gz" release/model-insight-vps.tar.gz
 printf '部署包：%s/release/model-insight-vps.tar.gz（无源码/依赖/密钥/运行数据）\n' "$ROOT"
