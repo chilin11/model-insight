@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { ArrowLeft, Check, Code2, Copy, Download, Eye, FilePlus2, FileText, ImagePlus, LogOut, MessageSquare, Save, Send, Star, Trash2, X } from 'lucide-react'
+import { ArrowLeft, BarChart3, Check, Code2, Copy, Download, Eye, FilePlus2, FileText, ImagePlus, LogOut, MessageSquare, Save, Send, Star, Trash2, X } from 'lucide-react'
 import { categories, models, type Article, type Source } from './content'
 import { ApiError, request, type Publication } from './api'
 import ArticleContent from './ArticleContent'
 import MarkdownEditor, { countWords, readingMinutes } from './MarkdownEditor'
 import AdminComments, { type AdminComment } from './AdminComments'
+import AdminStats from './AdminStats'
 import './admin.css'
 
 const dateNow = () => new Date().toISOString().slice(0, 10)
@@ -50,7 +51,7 @@ export default function Admin() {
   const [query, setQuery] = useState('')
   const [preview, setPreview] = useState<Article | null>(null)
   const [tab, setTab] = useState<'all' | 'draft' | 'published'>('all')
-  const [view, setView] = useState<'articles' | 'comments'>('articles')
+  const [view, setView] = useState<'articles' | 'comments' | 'stats'>('articles')
   const [comments, setComments] = useState<AdminComment[]>([])
   const editorHeading = useRef<HTMLHeadingElement>(null)
   const dirty = article !== null && fingerprint(article, sections) !== baseline
@@ -187,9 +188,10 @@ export default function Admin() {
 
   return <div className="admin-app">
     <header className="admin-header"><a href="/" onClick={event => { if (!confirmDiscard()) event.preventDefault() }}><strong>模型智见</strong><span>写作后台</span></a>
-      <nav className="admin-nav" aria-label="后台栏目"><button aria-current={view === 'articles' ? 'page' : undefined} onClick={() => setView('articles')}><FileText size={15} />文章</button><button aria-current={view === 'comments' ? 'page' : undefined} onClick={() => { setView('comments'); reloadComments().catch(showError) }}><MessageSquare size={15} />评论审核{pendingCount > 0 && <span className="admin-badge" aria-label={`${pendingCount} 条待审核`}>{pendingCount}</span>}</button></nav>
+      <nav className="admin-nav" aria-label="后台栏目"><button aria-current={view === 'articles' ? 'page' : undefined} onClick={() => setView('articles')}><FileText size={15} />文章</button><button aria-current={view === 'comments' ? 'page' : undefined} onClick={() => { setView('comments'); reloadComments().catch(showError) }}><MessageSquare size={15} />评论审核{pendingCount > 0 && <span className="admin-badge" aria-label={`${pendingCount} 条待审核`}>{pendingCount}</span>}</button><button aria-current={view === 'stats' ? 'page' : undefined} onClick={() => setView('stats')}><BarChart3 size={15} />访问统计</button></nav>
       <div><a className="button button-outline" href="/" target="_blank" rel="noopener noreferrer">查看网站 ↗</a><button className="button" onClick={() => void logout()} disabled={busy || uploading}><LogOut size={16} />退出</button></div></header>
-    {view === 'comments' ? <main className="admin-layout admin-layout-single"><section className="admin-editor"><div className="admin-notices">{error && <p className="admin-error" role="alert">{error}</p>}{message && <p className="admin-success" role="status"><Check size={17} />{message}</p>}</div><AdminComments comments={comments} articles={publication.articles} busy={busy} onModerate={(c, s) => void moderate(c, s)} onDelete={c => void deleteComment(c)} onReload={() => { setBusy(true); reloadComments().then(() => setMessage('评论列表已刷新。')).catch(showError).finally(() => setBusy(false)) }} /></section></main> :
+    {view === 'stats' ? <main><AdminStats onUnauthorized={() => setAuthenticated(false)} /></main> :
+    view === 'comments' ? <main className="admin-layout admin-layout-single"><section className="admin-editor"><div className="admin-notices">{error && <p className="admin-error" role="alert">{error}</p>}{message && <p className="admin-success" role="status"><Check size={17} />{message}</p>}</div><AdminComments comments={comments} articles={publication.articles} busy={busy} onModerate={(c, s) => void moderate(c, s)} onDelete={c => void deleteComment(c)} onReload={() => { setBusy(true); reloadComments().then(() => setMessage('评论列表已刷新。')).catch(showError).finally(() => setBusy(false)) }} /></section></main> :
     <main className="admin-layout">
       <aside className="admin-sidebar" aria-label="文章管理"><div className="admin-list-heading"><h1>文章库</h1><span>{publication.articles.length} 篇 · {draftCount} 篇草稿</span></div><button className="button button-blue admin-new" onClick={() => openArticle(newArticle(), true)} disabled={busy || uploading}><FilePlus2 size={18} />写新文章</button>
         <input className="admin-search" type="search" aria-label="搜索后台文章" placeholder="搜索标题或文章 ID" value={query} onChange={event => setQuery(event.target.value)} />

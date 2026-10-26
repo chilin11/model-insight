@@ -108,3 +108,14 @@ Cookie 写请求必须携带 `X-Requested-With: model-insight` 和与 Host 同�
 - 500：持久化等服务端错误。不要假定保存成功；检查服务日志、磁盘和文件权限。
 
 密钥轮换后重启服务；会话也会失效。日志不记录请求正文或密钥；代理日志规则由运营者配置。内容库和 media 属于私有运维数据，不推到源码仓库。
+
+## 匿名访问统计
+
+- `POST /api/stats/event`：JSON `{ "type": "pageview" }` 或 `{ "type": "article", "articleId": "已发布文章ID" }`，需同源 Origin 与 `X-Requested-With: model-insight`，JSON 限 1 KiB。不接受额外字段或查询参数。成功返回空 204；已登录管理员、常见爬虫、DNT/GPC 请求返回同样的 204 但不计数。
+- `GET /api/admin/stats?days=7|30|90`：Cookie 管理员认证；默认 30 天，包含今天。返回 `startedAt / updatedAt / timezone / days / totals / today / period / daily / articles`。各汇总为 `{pageViews,articleViews}`；daily 为按北京时间升序的 `{date,pageViews,articleViews}`；articles 为 `{id,title,status,views,periodViews,todayViews}`，包含已发布文章的零值项，历史下架/删除稿使用固定名称，不存历史标题。
+- 前台页面可见满 1 秒记访问；文章打开可见满 1 秒记阅读；同一文档内同一文章只报一次，刷新可再计。是**事件次数，不是 UV、读完率或曝光点击率**。后台预览不上报。
+- 不设统计 Cookie、不存身份/IP/来源/UA/指纹；IP 只用于短期内存防刷。每 IP 每分钟最多 30 个事件，全站每分钟 120、每秒 10 个（429），异常流量会漏计。拦截、断网、禁用 JS 也可能漏计，不能用于广告审计或结算。
+- 数据单独存 `DATA_DIR/analytics.json`，保留累计和最近 90 天日数据，从功能安装后开始，不补造历史。每次成功事件原子持久化；保存失败返回 503，不推进确认计数。GET 仍返回最后成功保存的数据。
+- 文件损坏/无法读取时不自动清零或覆盖：正常运行禁用统计、GET 返回 503，其余阅读与发稿照常；`-check-config` 会明确失败阻止有问题的更新。先归档数据并检查日志，不能直接删文件来“修复”。
+
+具体站点与站长批量发布脚本见 [固定发稿方法](PUBLISHING.md)。

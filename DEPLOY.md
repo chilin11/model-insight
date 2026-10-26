@@ -32,7 +32,7 @@ SHA256 只能确认文件下载完整，**不是签名**。从 `curl | sudo bash
 - Linux + systemd，amd64/arm64（自动选择）。推荐 Debian 12/13、Ubuntu 22.04/24.04；需要 Bash、coreutils/findutils、grep/awk、`ss`（iproute2）、curl、getent/useradd/runuser。缺依赖直接退出，需管理员人工安装。macOS 只能构建和测试。
 - 默认 `127.0.0.1:8188`；首次可 `sudo PORT=8288 bash deploy.sh` 或 `--port 8288`。拒绝低位端口、5173/5188，不改 80/443、其他服务、DNS、tunnel、防火墙，不自动安装/启动 Nginx。
 - 专用低权限用户/组 `model-insight`；只有 `/var/lib/model-insight` 可写。systemd 开启 NoNewPrivileges、ProtectSystem、ProtectHome 等隔离。
-- 程序 `/opt/model-insight/releases/<version>/`，`current` 原子切换；独立数据 `/var/lib/model-insight/content.json`、`content.json.bak`、`comments.json`（读者评论，首条评论时创建）、`media/`；密钥 `/etc/model-insight.env`（root:root、0600）。**更新从不覆盖数据或已有 env，不自动删除文章、图片和旧版本。**
+- 程序 `/opt/model-insight/releases/<version>/`，`current` 原子切换；独立数据 `/var/lib/model-insight/content.json`、`content.json.bak`、`comments.json`（读者评论，首条评论时创建）、`analytics.json`（匿名访问汇总）、`media/`；密钥 `/etc/model-insight.env`（root:root、0600）。**更新从不覆盖数据或已有 env，不自动删除文章、图片和旧版本。**
 - 只管理带 `# model-insight managed go v2` 及匹配路径标记的目录、env 和 unit。未知同名用户/组、unit、systemd drop-in、目录（即使为空）、符号链接路径均拒绝接管。旧 Nginx 部署 v1 不自动迁移：先人工确认/归档原 unit，停止且仅停本站旧服务，保留旧站数据，再安装；绝不覆盖未知 unit。
 
 ## 1. 本机构建
@@ -130,7 +130,8 @@ ingress:
 - 写文件使用同目录临时文件、0600、fsync + rename；保留上一版 `.bak`，只有落盘成功才更新内存。目录 fsync 在不支持的文件系统上尽力执行。**只运行一个服务实例**，不要让两个进程同时写同一 DATA_DIR；不要在线手工编辑 content.json。
 - 当前文件损坏/缺失但存在 `.bak` 时 fail closed；不自动恢复/清空。先停止服务、归档全部 DATA_DIR，再人工核验备份并恢复为 content.json，最后启动；不要直接删坏文件绕过校验。
 - 评论：`comments.json` 损坏时服务和 `-check-config` 都会拒绝启动，不会清空评论；评论限流使用 cloudflared 在本机连接上带来的 `CF-Connecting-IP`，IP 不写盘。分享页 `/a/<id>` 与 RSS `/rss.xml` 用请求 Host 生成绝对链接，所以 tunnel 必须保留原始 Host。
-- 备份：维护窗口先停止本站服务，把整个 `/var/lib/model-insight`（含文章、评论、图片）和私密 env 分开备份到可信位置再启动。只保留 `.bak` 不是完整备份；不能放进 www/GitHub/Release。
+- 统计：`analytics.json` 从功能启用后开始累计，不补历史；按北京时间保留最近 90 天明细及累计次数。单独文件损坏时正常启动仅禁用统计并警告，不覆盖原文件；`-check-config` 则拒绝带坏统计文件的更新。恢复前先归档坏文件，禁止直接删除绕过错误。低流量实现每次原子保存，按 IP 30 次/分钟、全站 120 次/分钟及 10 次/秒防刷；统计是参考次数，不是 UV/CTR。
+- 备份：维护窗口先停止本站服务，把整个 `/var/lib/model-insight`（含文章、评论、统计、图片）和私密 env 分开备份到可信位置再启动。只保留 `.bak` 不是完整备份；不能放进 www/GitHub/Release。
 - 程序日志仅启动/失败状态，不记录请求体、令牌或 cookie；`sudo journalctl -u model-insight.service -n 50 --no-pager` 查看。
 - 首次健康检查失败且无法自动恢复时，脚本保留 `.transaction.*` 并提示路径，先人工诊断，不立即覆盖重试。
 

@@ -13,6 +13,7 @@ type App struct {
 	store            *Store
 	auth             *Auth
 	comments         *CommentStore
+	analytics        *AnalyticsStore
 	limiter          *RateLimiter
 	webDir, mediaDir string
 }
@@ -136,6 +137,18 @@ func (app *App) api(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch {
+	case p == "/api/stats/event":
+		if r.Method != "POST" {
+			apiError(w, 405, "method not allowed")
+			return
+		}
+		app.analyticsEvent(w, r)
+	case p == "/api/admin/stats":
+		if r.Method != "GET" {
+			apiError(w, 405, "method not allowed")
+			return
+		}
+		app.adminStats(w, r)
 	case p == "/api/articles" && r.Method == "GET":
 		jsonResponse(w, 200, app.store.snapshot(true))
 	case p == "/api/admin/articles" && r.Method == "GET":
