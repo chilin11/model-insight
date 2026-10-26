@@ -1,6 +1,31 @@
 # 轻量发布平台部署（单 Go 进程、无容器）
 
-**推荐：本机构建 → 上传部署包 → `sudo bash deploy.sh` → 现有 cloudflared 指向 `127.0.0.1:8188`。** VPS 只运行一个 Go 进程，同时提供前台、`/admin`、JSON API 和图片；无需 Nginx、Node.js、数据库或 Go 工具链。不调用模型、不抓取来源或远程图片，不安装任何系统软件。
+**推荐：在 VPS 上运行一行命令，从 GitHub Release 安装或更新，再把现有 cloudflared 指向 `127.0.0.1:8188`。** VPS 只运行一个 Go 进程，同时提供前台、`/admin`、JSON API 和图片；无需 Nginx、Node.js、数据库或 Go 工具链。不调用模型、不抓取来源或远程图片，不安装任何系统软件。
+
+## 0. 一键安装 / 更新
+
+```sh
+curl -fsSL https://github.com/chilin11/model-insight/releases/latest/download/install.sh | sudo bash
+```
+
+`install.sh` 会做这几件事：
+
+1. 从最新 Release 下载 `model-insight-vps.tar.gz` 和 `.sha256`。
+2. 校验 SHA256，拒绝包含绝对路径或 `..` 的压缩包。
+3. 解压到 `/var/tmp` 下的新临时目录，然后用 `validate-dist.sh` 校验 SHA256SUMS。
+4. 执行 `deploy.sh`，完成后删除临时目录。
+
+参数说明：
+
+- 选项会原样传给 `deploy.sh`，例如 `| sudo bash -s -- --port 8288`。
+- `MODEL_INSIGHT_VERSION=v0.2.1` 安装指定版本，可用于回到旧版。
+- `MODEL_INSIGHT_DRY_RUN=1` 只下载和校验，不部署。
+
+更新时再次运行同一条命令即可。已有的 env、文章、评论和图片都会保留，部署失败时会自动恢复旧版本。
+
+SHA256 只能确认文件下载完整，**不是签名**。从 `curl | sudo bash` 开始，你就信任了这个 GitHub 仓库及其 Release，请只在自己控制的仓库上使用。想先审查再运行，可以先下载 `install.sh` 查看，再执行 `sudo bash install.sh`。
+
+下面的第 1、2 节是不经 GitHub、手动构建上传的方式。
 
 ## 支持范围与隔离
 

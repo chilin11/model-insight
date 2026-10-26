@@ -16,26 +16,37 @@
 
 👉 [快速写作说明](docs/WRITING.md) · [AI / 管理 API](docs/API.md) · [部署、升级与备份](DEPLOY.md)
 
-## 快速部署（systemd Linux）
+## 一键部署 / 更新（systemd Linux）
 
-推荐在开发电脑构建部署包，VPS 不安装 Node、Go 或数据库：
+在 VPS 上直接运行（需要 root 权限，不需要 Docker、Node、Go 或数据库）：
+
+```sh
+curl -fsSL https://github.com/chilin11/model-insight/releases/latest/download/install.sh | sudo bash
+```
+
+脚本从 GitHub Release 下载最新部署包，校验 SHA256 和包内文件清单后执行 `deploy.sh`，自动识别 amd64 / arm64。**以后更新再运行同一条命令即可**，文章、评论、图片和密钥都会保留。
+
+- 首次指定端口：`curl -fsSL …/install.sh | sudo bash -s -- --port 8288`
+- 安装指定版本：`curl -fsSL …/install.sh | sudo MODEL_INSIGHT_VERSION=v0.2.1 bash`
+- 只下载校验、不部署：`… | sudo MODEL_INSIGHT_DRY_RUN=1 bash`
+
+默认监听 `127.0.0.1:8188`，将宿主机上的 cloudflared 源站指向 `http://127.0.0.1:8188`（保留原始 Host），通过公网 HTTPS 访问。首次部署会生成管理员和 AI 两个不同的密钥：
+
+```sh
+sudo sed -n 's/^ADMIN_TOKEN=//p' /etc/model-insight.env   # 登录 /admin
+sudo sed -n 's/^API_TOKEN=//p' /etc/model-insight.env     # AI 接入
+```
+
+手动上传部署包、回滚、备份等见 [DEPLOY.md](DEPLOY.md)。
+
+### 发布新版本（维护者）
 
 ```sh
 npm ci
-bash scripts/package-deploy.sh
-# 将 release/model-insight-vps.tar.gz 上传到 VPS
+GO_BIN=/path/to/go bash scripts/release.sh v0.2.2   # 构建前端与 Linux 二进制，上传 Release（含 install.sh）
 ```
 
-在 VPS 上解压到一个新目录，然后运行：
-
-```sh
-mkdir model-insight-upload-YYYYMMDD-HHMMSS
-cd model-insight-upload-YYYYMMDD-HHMMSS
-tar -xzf ../model-insight-vps.tar.gz
-sudo bash deploy.sh
-```
-
-默认监听 `127.0.0.1:8188`。将宿主机运行的 cloudflared 源站指向 `http://127.0.0.1:8188`，通过公网 HTTPS 访问。脚本首次生成管理员和 AI 两个不同密钥，读取方法见脚本输出和 [DEPLOY.md](DEPLOY.md)。更新时解压新包后运行同一部署命令。
+发布前须已提交并推送 main。VPS 再跑一次安装命令即可升级到这个版本。
 
 **程序与数据分离**：程序在 `/opt/model-insight`，文章和图片在 `/var/lib/model-insight`，密钥在 `/etc/model-insight.env`。更新程序保留已有文章、草稿、配图、评论和密钥，不重复导入 seed。
 
