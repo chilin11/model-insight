@@ -226,29 +226,33 @@ test('editor toolbar inserts formatting, uploads images inline and previews side
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
-test('reader comments are moderated before they become public', async ({ page, browser }) => {
+test('reader comments publish immediately and can still be hidden or restored', async ({ page, browser }, testInfo) => {
   await login(page)
   const article = await publishArticle(page, { body: '评论测试正文' })
-  const reader = await browser.newPage()
-  await reader.goto(`http://127.0.0.1:8198/a/${article.id}`)
-  await expect(reader.getByText('还没有公开评论。')).toBeVisible()
-  await reader.getByLabel('昵称').fill('测试读者')
-  await reader.getByLabel('你的看法').fill('这篇文章\n有两行')
-  await reader.getByRole('button', { name: '提交评论' }).click()
-  await expect(reader.locator('.comment-status')).toContainText('审核后')
-  await reader.reload()
-  await expect(reader.getByText('还没有公开评论。')).toBeVisible()
-  await page.reload()
-  await page.getByRole('button', { name: /评论审核/ }).click()
-  await expect(page.locator('.admin-badge')).toBeVisible()
-  const item = page.locator('.admin-comment-list > li').filter({ hasText: '测试读者' }).filter({ hasText: article.title })
-  await expect(item).toContainText('有两行')
-  await item.getByRole('button', { name: '通过并公开' }).click()
-  await expect(page.locator('.admin-success')).toContainText('评论已公开')
-  await reader.reload()
-  await expect(reader.locator('.comment-list')).toContainText('测试读者')
-  await expect(reader.locator('.comment-list p')).toHaveText('这篇文章\n有两行')
-  await reader.close()
+  const reader = await browser.newPage({ extraHTTPHeaders: { 'CF-Connecting-IP': testInfo.project.name === 'mobile' ? '198.51.100.211' : '198.51.100.210' } })
+  try {
+    await reader.goto(`http://127.0.0.1:8198/a/${article.id}`)
+    await expect(reader.getByText('还没有公开评论。')).toBeVisible()
+    await reader.getByLabel('昵称').fill('测试读者')
+    await reader.getByLabel('你的看法').fill('这篇文章\n有两行')
+    await reader.getByRole('button', { name: '提交评论' }).click()
+    await expect(reader.locator('.comment-status')).toHaveText('评论已发布。')
+    await expect(reader.locator('.comment-list p')).toHaveText('这篇文章\n有两行')
+    await reader.reload()
+    await expect(reader.locator('.comment-list')).toContainText('测试读者')
+    await page.reload()
+    await page.getByRole('button', { name: /评论管理/ }).click()
+    const item = page.locator('.admin-comment-list > li').filter({ hasText: '测试读者' }).filter({ hasText: article.title })
+    await expect(item).toContainText('有两行')
+    await item.getByRole('button', { name: '撤下', exact: true }).click()
+    await expect(page.locator('.admin-success')).toContainText('评论已隐藏')
+    await reader.reload()
+    await expect(reader.getByText('还没有公开评论。')).toBeVisible()
+    await item.getByRole('button', { name: '脱敏并公开' }).click()
+    await expect(page.locator('.admin-success')).toContainText('评论已公开')
+    await reader.reload()
+    await expect(reader.locator('.comment-list p')).toHaveText('这篇文章\n有两行')
+  } finally { await reader.close() }
 })
 
 test('closed comments hide the form; spam honeypot is silently dropped', async ({ page }) => {
@@ -259,7 +263,7 @@ test('closed comments hide the form; spam honeypot is silently dropped', async (
   await expect(page.getByRole('button', { name: '提交评论' })).toHaveCount(0)
   const open = await publishArticle(page, { body: '开放评论' })
   const spam = await page.request.post(`/api/articles/${open.id}/comments`, { headers: origin, data: { name: 'bot', body: 'buy now', website: 'http://spam.example' } })
-  expect(spam.status()).toBe(202)
+  expect(spam.status()).toBe(201)
   const all = await (await page.request.get('/api/admin/comments')).json()
   expect(all.comments.some((c: { name: string }) => c.name === 'bot')).toBe(false)
   expect((await page.request.post(`/api/articles/${open.id}/comments`, { headers: { 'X-Requested-With': 'model-insight', Origin: 'https://evil.example' }, data: { body: '跨站提交' } })).status()).toBe(403)
@@ -289,4 +293,86 @@ test('share pages carry social metadata, RSS lists published articles, drafts ca
   const list = await (await page.request.get('/api/admin/articles')).json()
   expect(list.articles.some((a: { id: string }) => a.id === draftID)).toBe(false)
   expect((await page.request.delete(`/api/admin/articles/${article.id}`, { headers: origin })).status()).toBe(409)
+})
+
+test('sensitive comments and nicknames are masked before immediate publication', async ({ page, browser }, testInfo) => {
+  await login(page)
+  const article = await publishArticle(page, { body: '自动脱敏测试正文' })
+  const reader = await browser.newPage({ extraHTTPHeaders: { 'CF-Connecting-IP': testInfo.project.name === 'mobile' ? '198.51.100.213' : '198.51.100.212' } })
+  try {
+    await reader.goto(`http://127.0.0.1:8198/a/${article.id}`)
+    await reader.getByLabel('昵称').fill('reader@example.com')
+    await reader.getByLabel('你的看法').fill('联系我13800138000，模型能力不行。')
+    await reader.getByRole('button', { name: '提交评论' }).click()
+    await expect(reader.locator('.comment-status')).toContainText('已用星号遮盖')
+    await expect(reader.locator('.comment-list p')).toHaveText('联系我***，模型能力不行。')
+    await expect(reader.locator('.comment-meta strong')).toHaveText('***')
+    await expect(reader.getByLabel('昵称')).toHaveValue('***')
+    expect(await reader.evaluate(() => localStorage.getItem('model-insight:comment-name'))).toBe('***')
+    await reader.reload()
+    await expect(reader.locator('.comment-list')).not.toContainText('13800138000')
+    await expect(reader.locator('.comment-list')).not.toContainText('reader@example.com')
+    const all = await (await page.request.get('/api/admin/comments')).json()
+    const saved = all.comments.find((c: { articleId: string }) => c.articleId === article.id)
+    expect(saved).toMatchObject({ status: 'approved', name: '***', body: '联系我***，模型能力不行。' })
+    await reader.setViewportSize({ width: 320, height: 844 })
+    expect(await reader.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  } finally { await reader.close() }
+})
+
+test('bulk legacy policy publishes pending but never restores hidden comments', async ({ page }, testInfo) => {
+  await login(page)
+  const article = await publishArticle(page, { body: '旧评论处理测试' })
+  const headers = { ...origin, 'CF-Connecting-IP': testInfo.project.name === 'mobile' ? '198.51.100.215' : '198.51.100.214' }
+  const pending = await (await page.request.post(`/api/articles/${article.id}/comments`, { headers, data: { name: '旧待审读者', body: '旧待审评论内容' } })).json()
+  const hidden = await (await page.request.post(`/api/articles/${article.id}/comments`, { headers, data: { name: '旧隐藏读者', body: '人工隐藏的内容' } })).json()
+  expect((await page.request.put(`/api/admin/comments/${pending.comment.id}`, { headers: origin, data: { status: 'pending' } })).ok()).toBe(true)
+  expect((await page.request.put(`/api/admin/comments/${hidden.comment.id}`, { headers: origin, data: { status: 'hidden' } })).ok()).toBe(true)
+  await page.reload()
+  await page.getByRole('button', { name: /评论管理/ }).click()
+  page.once('dialog', d => d.dismiss())
+  await page.getByRole('button', { name: '按规则处理旧评论', exact: true }).click()
+  await expect(page.locator('.admin-comment-list > li').filter({ hasText: '旧待审读者' }).filter({ hasText: article.title })).toHaveClass('is-pending')
+  page.once('dialog', d => d.accept())
+  await page.getByRole('button', { name: '按规则处理旧评论', exact: true }).click()
+  await expect(page.locator('.admin-success')).toContainText('1 条待审评论已公开')
+  await expect(page.locator('.admin-comment-list > li').filter({ hasText: '旧隐藏读者' }).filter({ hasText: article.title })).toHaveClass('is-hidden')
+  const visible = await (await page.request.get(`/api/articles/${article.id}/comments`)).json()
+  expect(visible.comments.map((c: { name: string }) => c.name)).toEqual(['旧待审读者'])
+  for (const width of [320, 390, 1440]) {
+    await page.setViewportSize({ width, height: 900 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
+})
+
+test('failed comment publication preserves the reader input', async ({ page }) => {
+  await page.goto('/a/kimi-k31-pro-release')
+  await page.route('**/api/articles/*/comments', async route => {
+    if (route.request().method() === 'POST') await route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"comment could not be saved"}' })
+    else await route.continue()
+  })
+  await page.getByLabel('你的看法').fill('未保存的评论内容')
+  await page.getByRole('button', { name: '提交评论' }).click()
+  await expect(page.locator('.comment-status')).toContainText('内容已保留')
+  await expect(page.getByLabel('你的看法')).toHaveValue('未保存的评论内容')
+})
+
+test('slow initial comment loading cannot erase a just-published comment', async ({ page }) => {
+  let release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  await page.route('**/api/articles/kimi-k31-pro-release/comments', async route => {
+    if (route.request().method() === 'GET') {
+      await gate
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"comments":[]}' })
+    } else await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ status: 'approved', masked: false, comment: { id: 'slow-load-comment', name: '匿名读者', body: '慢加载时仍保留新评论', createdAt: '2026-10-26T00:00:00Z' } }) })
+  })
+  try {
+    await page.goto('/a/kimi-k31-pro-release')
+    await page.getByLabel('你的看法').fill('慢加载时仍保留新评论')
+    await page.getByRole('button', { name: '提交评论' }).click()
+    await expect(page.locator('.comment-list p')).toHaveText('慢加载时仍保留新评论')
+    const loaded = page.waitForResponse(r => r.url().endsWith('/kimi-k31-pro-release/comments') && r.request().method() === 'GET')
+    release(); await loaded; await page.waitForTimeout(100)
+    await expect(page.locator('.comment-list p')).toHaveText('慢加载时仍保留新评论')
+  } finally { release() }
 })

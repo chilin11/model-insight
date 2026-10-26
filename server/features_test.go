@@ -13,7 +13,7 @@ func publicPost(app *App, path string, v any, origin string) *httptest.ResponseR
 	return request(app, "POST", path, v, nil, origin, "model-insight", "")
 }
 
-func TestCommentsModerationFlow(t *testing.T) {
+func TestCommentsAutoPublishAndManagement(t *testing.T) {
 	app := fixture(t)
 	c := login(t, app)
 	comment := map[string]string{"name": " 读者 ", "body": "第一条评论\r\n第二行"}
@@ -23,21 +23,21 @@ func TestCommentsModerationFlow(t *testing.T) {
 	status(t, publicPost(app, "/api/articles/existing/comments", map[string]string{"body": "x"}, "http://example.test"), 400)
 	status(t, publicPost(app, "/api/articles/existing/comments", map[string]string{"body": "bad\u0000text"}, "http://example.test"), 400)
 	status(t, publicPost(app, "/api/articles/existing/comments", map[string]string{"body": "ok", "extra": "x"}, "http://example.test"), 400)
-	status(t, publicPost(app, "/api/articles/existing/comments", comment, "http://example.test"), 202)
+	status(t, publicPost(app, "/api/articles/existing/comments", comment, "http://example.test"), 201)
 	// Honeypot submissions look successful but are not stored.
-	status(t, publicPost(app, "/api/articles/existing/comments", map[string]string{"body": "spam link", "website": "http://spam"}, "http://example.test"), 202)
+	status(t, publicPost(app, "/api/articles/existing/comments", map[string]string{"body": "spam link", "website": "http://spam"}, "http://example.test"), 201)
 
 	w := request(app, "GET", "/api/articles/existing/comments", nil, nil, "", "", "")
 	status(t, w, 200)
-	if strings.Contains(w.Body.String(), "第一条") {
-		t.Fatal("pending comment leaked before moderation")
+	if !strings.Contains(w.Body.String(), "第一条") {
+		t.Fatal("clean comment was not immediately public")
 	}
 	status(t, request(app, "GET", "/api/admin/comments", nil, nil, "", "", ""), 401)
 	w = adminRequest(app, "GET", "/api/admin/comments", nil, c)
 	status(t, w, 200)
 	var all struct{ Comments []Comment }
 	json.Unmarshal(w.Body.Bytes(), &all)
-	if len(all.Comments) != 1 || all.Comments[0].Name != "读者" || all.Comments[0].Body != "第一条评论\n第二行" || all.Comments[0].Status != "pending" {
+	if len(all.Comments) != 1 || all.Comments[0].Name != "读者" || all.Comments[0].Body != "第一条评论\n第二行" || all.Comments[0].Status != "approved" {
 		t.Fatalf("unexpected stored comments: %+v", all.Comments)
 	}
 	id := all.Comments[0].ID
@@ -65,7 +65,7 @@ func TestCommentRateLimitClosedAndCorruptFile(t *testing.T) {
 	app := fixture(t)
 	c := login(t, app)
 	for i := 0; i < 5; i++ {
-		status(t, publicPost(app, "/api/articles/existing/comments", map[string]string{"body": "评论内容"}, "http://example.test"), 202)
+		status(t, publicPost(app, "/api/articles/existing/comments", map[string]string{"body": "评论内容"}, "http://example.test"), 201)
 	}
 	status(t, publicPost(app, "/api/articles/existing/comments", map[string]string{"body": "评论内容"}, "http://example.test"), 429)
 

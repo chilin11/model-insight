@@ -20,7 +20,7 @@ const maxPendingComments = 500
 const maxCommentRunes = 2000
 const maxNameRunes = 40
 
-var errQueueFull = errors.New("comment moderation queue is full")
+var errQueueFull = errors.New("comment capacity reached")
 var errCommentNotFound = errors.New("comment not found")
 
 type Comment struct {
@@ -131,19 +131,22 @@ func (s *CommentStore) add(c Comment) error {
 			pending++
 		}
 	}
-	if pending >= maxPendingComments || len(s.comments) >= maxComments {
+	if (c.Status == "pending" && pending >= maxPendingComments) || len(s.comments) >= maxComments {
 		return errQueueFull
 	}
 	return s.commit(append(append([]Comment{}, s.comments...), c))
 }
 
-func (s *CommentStore) moderate(id, status string) (Comment, error) {
+func (s *CommentStore) moderate(id, status string, filter *CommentFilter) (Comment, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	next := append([]Comment{}, s.comments...)
 	for i := range next {
 		if next[i].ID == id {
 			next[i].Status = status
+			if status == "approved" {
+				next[i], _ = filter.sanitize(next[i])
+			}
 			next[i].ModeratedAt = time.Now().UTC().Format(time.RFC3339)
 			if err := s.commit(next); err != nil {
 				return Comment{}, err
@@ -237,6 +240,12 @@ func cleanText(s string, multiline bool) (string, bool) {
 	return strings.TrimSpace(s), true
 }
 
+type commentSubmitResponse struct {
+	Status  string         `json:"status"`
+	Masked  bool           `json:"masked"`
+	Comment *PublicComment `json:"comment"`
+}
+
 func (app *App) submitComment(w http.ResponseWriter, r *http.Request, articleID string) {
 	if !checkWrite(r, false) {
 		apiError(w, 403, "invalid origin or CSRF header")
@@ -272,7 +281,7 @@ func (app *App) submitComment(w http.ResponseWriter, r *http.Request, articleID 
 	}
 	// Honeypot: automated submissions get the same response but are not stored.
 	if strings.TrimSpace(body.Website) != "" {
-		jsonResponse(w, 202, map[string]string{"status": "pending"})
+		jsonResponse(w, 201, commentSubmitResponse{Status: "approved"})
 		return
 	}
 	if name == "" {
@@ -283,16 +292,19 @@ func (app *App) submitComment(w http.ResponseWriter, r *http.Request, articleID 
 		apiError(w, 500, "unable to save comment")
 		return
 	}
-	c := Comment{ID: id, ArticleID: articleID, Name: name, Body: text, Status: "pending", CreatedAt: time.Now().UTC().Format(time.RFC3339)}
+	stamp := time.Now().UTC().Format(time.RFC3339)
+	c := Comment{ID: id, ArticleID: articleID, Name: name, Body: text, Status: "approved", CreatedAt: stamp, ModeratedAt: stamp}
+	c, masked := app.commentFilter.sanitize(c)
 	if err = app.comments.add(c); err != nil {
 		if errors.Is(err, errQueueFull) {
-			apiError(w, 503, "comment moderation queue is full")
+			apiError(w, 503, "comment capacity reached; try again later")
 		} else {
 			apiError(w, 500, "comment could not be saved")
 		}
 		return
 	}
-	jsonResponse(w, 202, map[string]string{"status": "pending"})
+	public := PublicComment{ID: c.ID, Name: c.Name, Body: c.Body, CreatedAt: c.CreatedAt}
+	jsonResponse(w, 201, commentSubmitResponse{Status: "approved", Masked: masked, Comment: &public})
 }
 
 func (app *App) commentsAPI(w http.ResponseWriter, r *http.Request) bool {
@@ -320,6 +332,26 @@ func (app *App) commentsAPI(w http.ResponseWriter, r *http.Request) bool {
 	case p == "/api/admin/comments" && r.Method == "GET":
 		jsonResponse(w, 200, map[string][]Comment{"comments": app.comments.all()})
 		return true
+	case p == "/api/admin/comments/auto-publish":
+		if r.Method != "POST" {
+			apiError(w, 405, "method not allowed")
+			return true
+		}
+		var body struct{}
+		if !decodeRequest(w, r, &body) {
+			return true
+		}
+		eligible := map[string]bool{}
+		for _, a := range app.store.snapshot(true).Articles {
+			eligible[a.ID] = !a.CommentsClosed
+		}
+		published, masked, err := app.comments.applyAutoPolicy(app.commentFilter, eligible)
+		if err != nil {
+			app.commentError(w, err)
+			return true
+		}
+		jsonResponse(w, 200, map[string]int{"published": published, "masked": masked})
+		return true
 	case strings.HasPrefix(p, "/api/admin/comments/"):
 		id := strings.TrimPrefix(p, "/api/admin/comments/")
 		if !idPattern.MatchString(id) {
@@ -338,7 +370,7 @@ func (app *App) commentsAPI(w http.ResponseWriter, r *http.Request) bool {
 				apiError(w, 400, "status must be approved, hidden or pending")
 				return true
 			}
-			c, err := app.comments.moderate(id, body.Status)
+			c, err := app.comments.moderate(id, body.Status, app.commentFilter)
 			if err != nil {
 				app.commentError(w, err)
 				return true
@@ -364,4 +396,36 @@ func (app *App) commentError(w http.ResponseWriter, err error) {
 		return
 	}
 	apiError(w, 500, "comment could not be saved")
+}
+
+// Explicit owner action only: do not resurrect held/hidden comments at startup.
+func (s *CommentStore) applyAutoPolicy(filter *CommentFilter, eligible map[string]bool) (int, int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	next := append([]Comment{}, s.comments...)
+	published, masked := 0, 0
+	stamp := time.Now().UTC().Format(time.RFC3339)
+	for i, c := range next {
+		if c.Status == "hidden" || (c.Status == "pending" && !eligible[c.ArticleID]) {
+			continue
+		}
+		sanitized, changed := filter.sanitize(c)
+		if changed {
+			masked++
+			sanitized.ModeratedAt = stamp
+		}
+		if c.Status == "pending" {
+			published++
+			sanitized.Status = "approved"
+			sanitized.ModeratedAt = stamp
+		}
+		next[i] = sanitized
+	}
+	if published == 0 && masked == 0 {
+		return 0, 0, nil
+	}
+	if err := s.commit(next); err != nil {
+		return 0, 0, err
+	}
+	return published, masked, nil
 }

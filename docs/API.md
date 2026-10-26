@@ -70,12 +70,17 @@ curl --fail-with-body "$SITE_URL/api/ingest/articles" \
 | 方法 / 路径 | 说明 |
 | --- | --- |
 | GET `/api/articles/{id}/comments` | 公开，`{comments:[{id,name,body,createdAt}]}`，只含已公开评论 |
-| POST `/api/articles/{id}/comments` | 公开，`{name?, body, website?}` → 202 `{status:"pending"}`；需 `X-Requested-With: model-insight` 与同源 `Origin` |
+| POST `/api/articles/{id}/comments` | 公开，`{name?, body, website?}` → 201 `{status:"approved",masked:boolean,comment:{id,name,body,createdAt}}`；先脱敏再保存并公开，需 `X-Requested-With: model-insight` 与同源 `Origin` |
 | GET `/api/admin/comments` | Cookie；全部评论（含 articleId、status），新的在前 |
-| PUT `/api/admin/comments/{id}` | Cookie；`{status}`，取值 approved / hidden / pending |
+| PUT `/api/admin/comments/{id}` | Cookie；`{status}`，取值 approved / hidden / pending；恢复 approved 时再次脱敏 |
 | DELETE `/api/admin/comments/{id}` | Cookie；永久删除 |
+| POST `/api/admin/comments/auto-publish` | Cookie + CSRF；`{}` → `{published,masked}`，单次原子处理：公开稿且未关闭评论的待审项脱敏后公开，已公开项重新脱敏，已隐藏项不恢复；失败不部分写入 |
 
-规则：昵称 ≤40 字（空则显示「匿名读者」），内容 2–2000 字，拒绝控制字符；文章须已发布且未设 `commentsClosed`。每个访客 10 分钟最多 5 条、全站每小时最多 120 条（429），待审核队列上限 500（503）。`website` 是隐藏防垃圾字段：有值时返回同样的 202 但不保存。访客 IP 只在内存中用于限流，不写盘；位于 cloudflared 之后时使用本机连接上的 `CF-Connecting-IP`。评论保存在 `DATA_DIR/comments.json`，原子写入，文件损坏时服务拒绝启动、不覆盖。
+规则：昵称 ≤40 字（空则显示「匿名读者」），内容 2–2000 字，拒绝控制字符；文章须已发布且未设 `commentsClosed`。每个访客 10 分钟最多 5 条、全站每小时最多 120 条（429），评论总数上限 20000（503）。`website` 是隐藏防垃圾字段：有值时返回成功状态但不保存（comment 为 null）。访客 IP 只在内存中用于限流，不写盘；位于 cloudflared 之后时只信任本机连接带来的 `CF-Connecting-IP`。评论保存在 `DATA_DIR/comments.json`，原子写入，文件损坏时服务拒绝启动、不覆盖。
+
+过滤是轻量本地规则，不是语义审核：默认常见辱骂/色情招揽词、国内手机号、邮箱、18 位身份证样式、通过 Luhn 校验的疑似银行卡号，以及部分 API 密钥/Bearer/JWT/密码赋值样式。命中片段在昵称和正文中替换成星号（最多 3 个），未命中部分保留；不会仅因批评模型而屏蔽评论。支持部分全角、大小写、零宽及拆字变体，不能保证覆盖暗语、所有隐私格式或未知敏感内容。
+
+新评论不保存被替换的原文。旧评论不会在启动时自动改状态；站长显式调用批处理可将旧公开/待审内容脱敏落盘，已隐藏评论不修改。旧备份仍可能含处理前的原文，应作为私密运维数据保管。自定义词库位置与限制见 [评论策略](WRITING.md#评论自动公开与脱敏)。
 
 ## 管理员：Cookie 会话
 

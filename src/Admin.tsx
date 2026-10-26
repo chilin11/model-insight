@@ -156,6 +156,12 @@ export default function Admin() {
     try { await request(`/api/admin/articles/${article.id}`, {}, 'DELETE'); setArticle(null); setBaseline(''); await reloadList(); setMessage('草稿已删除。') }
     catch (reason) { showError(reason) } finally { setBusy(false) }
   }
+  async function applyCommentPolicy() {
+    if (!window.confirm('按当前规则脱敏旧评论，并公开仍开放评论的已发布文章下的待审评论？已隐藏评论不会恢复；被替换的原文不保留。')) return
+    setBusy(true); setError('')
+    try { const result = await request<{ published: number; masked: number }>('/api/admin/comments/auto-publish', {}); await reloadComments(); setMessage(`处理完成：${result.published} 条待审评论已公开，${result.masked} 条评论已脱敏。已隐藏评论未恢复。`) }
+    catch (reason) { showError(reason) } finally { setBusy(false) }
+  }
   async function moderate(comment: AdminComment, status: AdminComment['status']) {
     setBusy(true); setError('')
     try { await request(`/api/admin/comments/${comment.id}`, { status }, 'PUT'); await reloadComments(); setMessage(status === 'approved' ? '评论已公开。' : status === 'hidden' ? '评论已隐藏，读者不可见。' : '评论已移回待审核。') }
@@ -188,10 +194,10 @@ export default function Admin() {
 
   return <div className="admin-app">
     <header className="admin-header"><a href="/" onClick={event => { if (!confirmDiscard()) event.preventDefault() }}><strong>模型智见</strong><span>写作后台</span></a>
-      <nav className="admin-nav" aria-label="后台栏目"><button aria-current={view === 'articles' ? 'page' : undefined} onClick={() => setView('articles')}><FileText size={15} />文章</button><button aria-current={view === 'comments' ? 'page' : undefined} onClick={() => { setView('comments'); reloadComments().catch(showError) }}><MessageSquare size={15} />评论审核{pendingCount > 0 && <span className="admin-badge" aria-label={`${pendingCount} 条待审核`}>{pendingCount}</span>}</button><button aria-current={view === 'stats' ? 'page' : undefined} onClick={() => setView('stats')}><BarChart3 size={15} />访问统计</button></nav>
+      <nav className="admin-nav" aria-label="后台栏目"><button aria-current={view === 'articles' ? 'page' : undefined} onClick={() => setView('articles')}><FileText size={15} />文章</button><button aria-current={view === 'comments' ? 'page' : undefined} onClick={() => { setView('comments'); reloadComments().catch(showError) }}><MessageSquare size={15} />评论管理{pendingCount > 0 && <span className="admin-badge" aria-label={`${pendingCount} 条待审核`}>{pendingCount}</span>}</button><button aria-current={view === 'stats' ? 'page' : undefined} onClick={() => setView('stats')}><BarChart3 size={15} />访问统计</button></nav>
       <div><a className="button button-outline" href="/" target="_blank" rel="noopener noreferrer">查看网站 ↗</a><button className="button" onClick={() => void logout()} disabled={busy || uploading}><LogOut size={16} />退出</button></div></header>
     {view === 'stats' ? <main><AdminStats onUnauthorized={() => setAuthenticated(false)} /></main> :
-    view === 'comments' ? <main className="admin-layout admin-layout-single"><section className="admin-editor"><div className="admin-notices">{error && <p className="admin-error" role="alert">{error}</p>}{message && <p className="admin-success" role="status"><Check size={17} />{message}</p>}</div><AdminComments comments={comments} articles={publication.articles} busy={busy} onModerate={(c, s) => void moderate(c, s)} onDelete={c => void deleteComment(c)} onReload={() => { setBusy(true); reloadComments().then(() => setMessage('评论列表已刷新。')).catch(showError).finally(() => setBusy(false)) }} /></section></main> :
+    view === 'comments' ? <main className="admin-layout admin-layout-single"><section className="admin-editor"><div className="admin-notices">{error && <p className="admin-error" role="alert">{error}</p>}{message && <p className="admin-success" role="status"><Check size={17} />{message}</p>}</div><AdminComments comments={comments} articles={publication.articles} busy={busy} onModerate={(c, s) => void moderate(c, s)} onDelete={c => void deleteComment(c)} onAutoPolicy={() => void applyCommentPolicy()} onReload={() => { setBusy(true); reloadComments().then(() => setMessage('评论列表已刷新。')).catch(showError).finally(() => setBusy(false)) }} /></section></main> :
     <main className="admin-layout">
       <aside className="admin-sidebar" aria-label="文章管理"><div className="admin-list-heading"><h1>文章库</h1><span>{publication.articles.length} 篇 · {draftCount} 篇草稿</span></div><button className="button button-blue admin-new" onClick={() => openArticle(newArticle(), true)} disabled={busy || uploading}><FilePlus2 size={18} />写新文章</button>
         <input className="admin-search" type="search" aria-label="搜索后台文章" placeholder="搜索标题或文章 ID" value={query} onChange={event => setQuery(event.target.value)} />

@@ -13,6 +13,7 @@ type App struct {
 	store            *Store
 	auth             *Auth
 	comments         *CommentStore
+	commentFilter    *CommentFilter
 	analytics        *AnalyticsStore
 	limiter          *RateLimiter
 	webDir, mediaDir string

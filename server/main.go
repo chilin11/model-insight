@@ -41,6 +41,10 @@ func main() {
 	dir := envDefault("DATA_DIR", "data")
 	seed := envDefault("SEED_FILE", "seed.json")
 	web := envDefault("WEB_DIR", "dist")
+	commentFilter, err := loadCommentFilter(dir)
+	if err != nil {
+		log.Fatal("invalid comment-sensitive-words.txt; existing data has not been modified")
+	}
 	if *checkConfig {
 		file := filepath.Join(dir, "content.json")
 		info, statErr := os.Lstat(file)
@@ -86,7 +90,7 @@ func main() {
 	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 		log.Fatal("media directory must not be a symlink")
 	}
-	app := &App{store: store, auth: auth, comments: comments, analytics: analytics, limiter: newRateLimiter(), webDir: web, mediaDir: media}
+	app := &App{store: store, auth: auth, comments: comments, commentFilter: commentFilter, analytics: analytics, limiter: newRateLimiter(), webDir: web, mediaDir: media}
 	server := &http.Server{Addr: envDefault("LISTEN_ADDR", "127.0.0.1:8188"), Handler: app, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 32 * 1024}
 	stopped := make(chan os.Signal, 1)
 	signal.Notify(stopped, os.Interrupt, syscall.SIGTERM)

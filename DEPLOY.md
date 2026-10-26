@@ -130,6 +130,7 @@ ingress:
 - 写文件使用同目录临时文件、0600、fsync + rename；保留上一版 `.bak`，只有落盘成功才更新内存。目录 fsync 在不支持的文件系统上尽力执行。**只运行一个服务实例**，不要让两个进程同时写同一 DATA_DIR；不要在线手工编辑 content.json。
 - 当前文件损坏/缺失但存在 `.bak` 时 fail closed；不自动恢复/清空。先停止服务、归档全部 DATA_DIR，再人工核验备份并恢复为 content.json，最后启动；不要直接删坏文件绕过校验。
 - 评论：`comments.json` 损坏时服务和 `-check-config` 都会拒绝启动，不会清空评论；评论限流使用 cloudflared 在本机连接上带来的 `CF-Connecting-IP`，IP 不写盘。分享页 `/a/<id>` 与 RSS `/rss.xml` 用请求 Host 生成绝对链接，所以 tunnel 必须保留原始 Host。
+- 评论策略：新评论先本地脱敏再直接公开，不保存新评论被替换片段的原文。可选的 `DATA_DIR/comment-sensitive-words.txt` 追加词库仅启动时加载，不随更新覆盖；坏词库会使启动及 `-check-config` 失败，不会绕过过滤。旧待审评论不在启动时自动公开，后台显式「按规则处理旧评论」才处理，已隐藏评论不恢复。规则局限与格式见 [写作说明](docs/WRITING.md#评论自动公开与脱敏)。
 - 统计：`analytics.json` 从功能启用后开始累计，不补历史；按北京时间保留最近 90 天明细及累计次数。单独文件损坏时正常启动仅禁用统计并警告，不覆盖原文件；`-check-config` 则拒绝带坏统计文件的更新。恢复前先归档坏文件，禁止直接删除绕过错误。低流量实现每次原子保存，按 IP 30 次/分钟、全站 120 次/分钟及 10 次/秒防刷；统计是参考次数，不是 UV/CTR。
 - 备份：维护窗口先停止本站服务，把整个 `/var/lib/model-insight`（含文章、评论、统计、图片）和私密 env 分开备份到可信位置再启动。只保留 `.bak` 不是完整备份；不能放进 www/GitHub/Release。
 - 程序日志仅启动/失败状态，不记录请求体、令牌或 cookie；`sudo journalctl -u model-insight.service -n 50 --no-pager` 查看。
@@ -186,3 +187,19 @@ bash tests/deploy.test.sh
 GitHub：源码仓库与部署附件分离，默认私有；仅在全部内容/测试稳定且明确授权后初始化提交、创建私有仓库及上传 Release 附件。发布前人工检查所有待上传文件无 env、content.json、media、密钥、依赖、研究原文；`.gitignore` 不是保密审查替代。不要把 VPS 生成的配置塞回部署包。
 
 卸载仅停本站并保留全部数据：核验 unit 所有权后 `sudo systemctl disable --now model-insight.service`，移除这个 unit 再 daemon-reload；归档 `/etc/model-insight.env`、`/opt/model-insight`、`/var/lib/model-insight`，不要删除其他服务/用户/目录。不自动移除专用用户/数据，避免误删。
+
+### 修改本地评论词库后校验
+
+默认安装路径下，在私密终端执行；不打印密钥，不将密钥放入命令参数。自定义目录请用对应 env 与服务二进制路径：
+
+```sh
+sudo bash -c '
+  set +x
+  set -a
+  . /etc/model-insight.env
+  set +a
+  exec runuser -u model-insight -- /opt/model-insight/current/model-insight -check-config
+' && sudo systemctl restart model-insight
+```
+
+先确保词库对 `model-insight` 用户可读（例如 root:model-insight、0640）；校验失败时不会执行重启。新增过滤词不会自动重写旧评论，需后台明确执行处理旧评论。备份整个 DATA_DIR 时词库也一并保留。
