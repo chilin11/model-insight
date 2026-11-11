@@ -12,7 +12,9 @@ test('news homepage renders stories without runtime errors, slogans or sample la
   page.on('pageerror', error => errors.push(error.message))
   await page.reload()
   await expect(page).toHaveTitle(/模型智见/)
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(featured.title)
+  await expect(page.locator('h1')).toHaveCount(1)
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('模型智见')
+  await expect(page.getByRole('heading', { level: 2, name: featured.title, exact: true })).toHaveClass(/lead-title/)
   await expect(page.locator('body')).not.toContainText(/模型很快|判断要准|少一点噪声|选题样稿|编辑预览/)
   await expect(page.locator('.article-card')).toHaveCount(6)
   await expect(page.locator('.must-read li')).toHaveCount(3)
@@ -77,7 +79,7 @@ test('newsletter clearly remains local-only', async ({ page }) => {
 test('malformed saved data does not break the page', async ({ page }) => {
   await page.evaluate(() => localStorage.setItem('a-little-new:bookmarks', '{invalid'))
   await page.reload()
-  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('模型智见')
   await expect(page.getByRole('button', { name: '我的收藏，0 篇', exact: true })).toBeVisible()
 })
 
@@ -254,7 +256,10 @@ test('data tables scroll independently and chart labels remain readable', async 
 test('shared /a/<id> links open the article and closing returns home', async ({ page }) => {
   await page.goto(`/a/${price.id}`)
   await expect(page.getByRole('dialog')).toHaveAccessibleName(price.title)
+  await expect(page.locator('h1')).toHaveCount(1)
+  await expect(page.locator('h1')).toHaveText(price.title)
   await page.getByRole('button', { name: '关闭面板' }).click()
   await expect(page).toHaveURL(/\/$/)
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(featured.title)
+  await expect(page.locator('h1')).toHaveCount(1)
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('模型智见')
 })

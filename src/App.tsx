@@ -303,6 +303,8 @@ function App({ publication }: { publication: Publication }) {
     </header>
 
     <main id="main">
+      {/* Exactly one H1 per view: the site title on the home view, the article title (in the reader) while an article is open. */}
+      {!activeArticle && <h1 className="visually-hidden">模型智见</h1>}
       <div className="topic-bar container">
         <span className="topic-label"><Hash size={15} aria-hidden="true" />话题</span>
         <div className="topic-list" role="group" aria-label="话题导航">{topics.map((topic, index) => <button key={topic.term} style={{ '--i': index } as CSSProperties} onClick={() => openSearch(topic.term)}>{topic.label}</button>)}</div>
@@ -312,7 +314,7 @@ function App({ publication }: { publication: Publication }) {
       <section className="front container" aria-label="头条与编辑推荐">
         <article className="lead-story">
           <div className="lead-tags"><span className="hot-tag">头条</span><span>{featured.category}</span><span className="sample-tag">{statusLabel(featured)}</span></div>
-          <h1 className="lead-title"><a {...readProps(featured)}><Highlighted text={featured.title} mark={featured.highlight} /></a></h1>
+          <h2 className="lead-title"><a {...readProps(featured)}><Highlighted text={featured.title} mark={featured.highlight} /></a></h2>
           <p className="lead-dek">{featured.description}</p>
           <div className="key-points"><span className="key-label">看点</span><p className="key-summary">{featured.takeaway}</p></div>
           <div className="lead-footer"><a className="text-link lead-read" {...readProps(featured)}>阅读全文 <ArrowRight size={17} /></a><span>{featured.time} 分钟阅读</span>{bookmarkButton(featured)}</div>
@@ -362,7 +364,7 @@ function App({ publication }: { publication: Publication }) {
           {activeArticle && <article className="reader">
             <header className="reader-heading">
               <div className="reader-kicker"><span><ModelMark tone={activeArticle.tone} label={activeArticle.model} /><span className="kicker-divider">/</span>{activeArticle.category}</span><span className="sample-tag">{statusLabel(activeArticle)}</span></div>
-              <h2 id="dialog-title" tabIndex={-1}>{activeArticle.title}</h2><p className="reader-description">{activeArticle.description}</p>
+              <h1 id="dialog-title" tabIndex={-1}>{activeArticle.title}</h1><p className="reader-description">{activeArticle.description}</p>
               <div className="reader-meta"><span>模型智见 · 资料编译与评论</span><span>{activeArticle.time} 分钟阅读</span>{activeArticle.publishedAt && <time dateTime={activeArticle.publishedAt}>{activeArticle.publishedAt}</time>}</div>
             </header>
             <div className="reader-body"><ArticleContent article={activeArticle} />

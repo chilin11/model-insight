@@ -4,7 +4,9 @@ import type { Article } from '../src/content'
 const base = 'http://127.0.0.1:8198'
 const headers = { Origin: base, 'X-Requested-With': 'model-insight' }
 const seedID = 'kimi-k31-pro-release'
-const markdown = `## 可抓取的完整正文
+const markdown = `# 正文自带一级标题
+
+## 可抓取的完整正文
 
 开头有 **重点**，脚注在这里[^source]。
 
@@ -52,6 +54,11 @@ async function schema(page: Page) {
   await expect(page.locator('#site-structured-data')).toHaveCount(1)
   return JSON.parse((await page.locator('#site-structured-data').textContent())!)['@graph'] as Record<string, unknown>[]
 }
+// Every state (raw HTML, takeover, overlay, degraded) must expose exactly one H1.
+async function singleH1(page: Page, text?: string) {
+  await expect(page.locator('h1')).toHaveCount(1)
+  if (text !== undefined) await expect(page.locator('h1')).toHaveText(text)
+}
 async function uniqueMeta(page: Page, path: string) {
   await expect(page.locator('head title')).toHaveCount(1)
   await expect(page.locator('meta[name="description"]')).toHaveCount(1)
@@ -68,6 +75,7 @@ test('no-JavaScript home exposes every published article through real links', as
     const reader = await context.newPage()
     expect((await reader.goto(base))!.status()).toBe(200)
     await expect(reader.locator('#server-content[data-page="home"] h1')).toHaveText('模型智见')
+    await singleH1(reader, '模型智见')
     const links = reader.locator('#server-content h2 a')
     await expect(links).toHaveCount(publication.articles.length)
     for (const article of publication.articles) await expect(reader.locator(`#server-content h2 a[href="/a/${article.id}"]`)).toHaveText(article.title)
@@ -75,6 +83,7 @@ test('no-JavaScript home exposes every published article through real links', as
     const target = publication.articles[0]
     await reader.locator(`h2 a[href="/a/${target.id}"]`).click()
     await expect(reader.locator('#server-content h1')).toHaveText(target.title)
+    await singleH1(reader, target.title)
     await uniqueMeta(reader, `/a/${target.id}`)
   } finally { await context.close() }
 })
@@ -115,6 +124,8 @@ test('no-JavaScript Markdown keeps tables, code, task lists and working footnote
     const reader = await context.newPage()
     await reader.goto(`${base}/a/${article.id}`)
     await expect(reader.locator('#server-content strong')).toHaveText('重点')
+    await singleH1(reader, article.title)
+    await expect(reader.locator('#server-content h2', { hasText: '正文自带一级标题' })).toHaveCount(1)
     await expect(reader.locator('#server-content table')).toContainText('测试值')
     await expect(reader.locator('#server-content pre')).toContainText('long_code_line_')
     await expect(reader.locator('#server-content .task-mark')).toHaveText('[x]')
@@ -133,9 +144,12 @@ test('interactive takeover and article open/close keep unique matching metadata'
   await page.goto(`/a/${seedID}?utm_source=test`)
   await expect(page.getByRole('dialog')).toBeVisible()
   await expect(page.locator('#server-content')).toHaveCount(0)
+  await singleH1(page)
+  await expect(page.locator('h1')).toHaveAttribute('id', 'dialog-title')
   await uniqueMeta(page, `/a/${seedID}`)
   expect((await schema(page)).find(item => item['@type'] === 'Article')?.url).toBe(`${base}/a/${seedID}`)
   await page.getByRole('button', { name: '关闭面板', exact: true }).click()
+  await singleH1(page, '模型智见')
   await uniqueMeta(page, '/')
   expect((await schema(page)).some(item => item['@type'] === 'Article')).toBe(false)
   await expect(page.locator('meta[property="article:published_time"]')).toHaveCount(0)
@@ -143,6 +157,8 @@ test('interactive takeover and article open/close keep unique matching metadata'
   const path = (await link.getAttribute('href'))!
   await link.click()
   await expect(page.getByRole('dialog')).toBeVisible()
+  await singleH1(page)
+  await expect(page.locator('h1')).toHaveAttribute('id', 'dialog-title')
   await uniqueMeta(page, path)
   expect((await schema(page)).find(item => item['@type'] === 'Article')?.url).toBe(`${base}${path}`)
   await page.getByRole('button', { name: '关闭面板', exact: true }).click()
@@ -173,17 +189,24 @@ test('slow API leaves readable server article until the interactive reader is re
     await page.goto(`/a/${seedID}`, { waitUntil: 'domcontentloaded' })
     await expect(page.locator('#server-content[data-page="article"]')).toContainText('原始资料与来源')
     await expect(page.getByRole('dialog')).not.toBeVisible()
+    await singleH1(page)
+    await expect(page.locator('#server-content h1')).toHaveCount(1)
   } finally { release() }
   await expect(page.getByRole('dialog')).toBeVisible()
   await expect(page.locator('#server-content')).toHaveCount(0)
+  await singleH1(page)
+  await expect(page.locator('h1')).toHaveAttribute('id', 'dialog-title')
   await expect(page.locator('[id="dialog-title"]')).toHaveCount(1)
 })
 
 test('failed API preserves the actual server article rather than showing seed or an empty page', async ({ page }) => {
   await page.route('**/api/articles', route => route.abort())
   await page.goto(`/a/${seedID}`)
-  await expect(page.getByRole('heading', { name: '互动界面暂时不可用' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '互动界面暂时不可用', level: 2 })).toBeVisible()
   await expect(page.locator('#server-content[data-page="article"]')).toContainText('原始资料与来源')
+  await singleH1(page)
+  await expect(page.locator('#server-content h1')).toHaveCount(1)
+  await expect(page.locator('main')).toHaveCount(1)
   await expect(page.locator('.article-card')).toHaveCount(0)
   await uniqueMeta(page, `/a/${seedID}`)
 })
@@ -193,8 +216,9 @@ test('failed Markdown chunk preserves the full Markdown server article', async (
   try {
     await page.route('**/assets/MarkdownBody-*.js', route => route.abort())
     await page.goto(`/a/${article.id}`)
-    await expect(page.getByRole('heading', { name: '互动界面暂时不可用' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '互动界面暂时不可用', level: 2 })).toBeVisible()
     await expect(page.locator('#server-content')).toContainText('正文末尾标记。')
+    await singleH1(page, article.title)
     await expect(page.locator('#server-content table')).toContainText('测试值')
     await expect(page.getByRole('dialog')).not.toBeVisible()
   } finally { await remove(request, article) }
@@ -258,7 +282,7 @@ test('sitemap, robots, redirects, HEAD and private route headers are served by t
 
 test('untrusted title and Markdown stay inert and JSON-LD roundtrips after takeover', async ({ page, request }) => {
   const title = '</script><script>window.seoAttack=1</script> 新闻'
-  const article = await create(request, { title, body: '## 安全正文\n\n<script>window.seoAttack=2</script>\n\n[危险链接](javascript:alert%281%29)\n\n![危险图片](data:image/svg+xml,evil)\n\n安全正文末尾。' })
+  const article = await create(request, { title, body: '# 正文一级标题\n\n## 安全正文\n\n<script>window.seoAttack=2</script>\n\n[危险链接](javascript:alert%281%29)\n\n![危险图片](data:image/svg+xml,evil)\n\n安全正文末尾。' })
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   try {
@@ -267,6 +291,8 @@ test('untrusted title and Markdown stay inert and JSON-LD roundtrips after takeo
     await page.goto(`/a/${article.id}`)
     await expect(page.getByRole('dialog')).toBeVisible()
     await expect(page.getByRole('dialog')).toContainText('安全正文末尾。')
+    await singleH1(page, title)
+    await expect(page.locator('.markdown-body h2', { hasText: '正文一级标题' })).toHaveCount(1)
     expect(await page.evaluate(() => 'seoAttack' in window)).toBe(false)
     expect((await schema(page)).find(item => item['@type'] === 'Article')?.headline).toBe(title)
     await expect(page.locator('a[href^="javascript:"], img[src^="data:image/svg"]')).toHaveCount(0)

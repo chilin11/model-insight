@@ -28,7 +28,9 @@ function Frontend() {
     if (missing) markMissingArticle()
   }, [publication, missing])
   if (serverPage === 'not-found') return null
-  if (error) return <main className="boot-message"><h1>{serverPage ? '互动界面暂时不可用' : '暂时无法读取文章'}</h1><p role="alert">{error}</p>{serverPage && <p>页面仍保留服务器返回的正文与文章目录，可继续阅读。</p>}<button className="button button-blue" onClick={() => location.reload()}>重新加载</button></main>
+  // The retained server page already owns the <main> landmark and the only H1.
+  if (error && serverPage) return <section className="boot-message" aria-labelledby="boot-error-title"><h2 id="boot-error-title">互动界面暂时不可用</h2><p role="alert">{error}</p><p>页面仍保留服务器返回的正文与文章目录，可继续阅读。</p><button className="button button-blue" onClick={() => location.reload()}>重新加载</button></section>
+  if (error) return <main className="boot-message"><h1>暂时无法读取文章</h1><p role="alert">{error}</p><button className="button button-blue" onClick={() => location.reload()}>重新加载</button></main>
   if (!publication) return serverPage ? null : <main className="boot-message" role="status">正在读取文章…</main>
   if (missing) return <main className="boot-message"><h1>文章不存在或已撤回</h1><p>请返回首页查看已发布文章。</p><a className="text-link" href="/">返回首页 →</a></main>
   if (!publication.articles.length) return <main className="boot-message"><h1>模型智见</h1><p>暂时没有已发布文章。</p><a className="text-link" href="/admin">进入写作后台 →</a></main>

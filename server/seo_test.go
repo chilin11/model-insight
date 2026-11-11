@@ -83,6 +83,9 @@ func TestSEOHomeInitialHTMLAllPublishedAndEmpty(t *testing.T) {
 	status(t, w, 200)
 	page := w.Body.String()
 	seoRequireText(t, page, `<main id="server-content" data-page="home">`, `<h1>模型智见</h1>`, `<h2><a href="/a/existing">`, `href="https://news.example.test/"`, `property="og:type" content="website"`, `name="twitter:card"`, `href="/rss.xml"`, `<div id="root"></div>`, `/assets/app-12345678.js`, `/assets/app-12345678.css`)
+	if n := strings.Count(page, "<h1"); n != 1 {
+		t.Fatalf("home page has %d H1 elements, want 1", n)
+	}
 	for i := 0; i < 18; i++ {
 		seoRequireText(t, page, fmt.Sprintf(`href="/a/news-%02d"`, i), fmt.Sprintf("真实新闻 %d", i), fmt.Sprintf("完整摘要 %d", i))
 	}
@@ -134,7 +137,7 @@ func TestSEOArticleFullLegacyMarkdownAndStructuredData(t *testing.T) {
 	a.Takeaway = "主要结论"
 	a.Highlight = "补充强调"
 	a.Image = &Image{URL: "/media/test-image.png", Alt: "真实图片说明", Caption: "真实图片来源图注"}
-	a.Body = "## Markdown 小标题\n\n正文 **加粗** 与 ~~删除线~~，引用脚注[^note]。\n\n> Markdown 引用内容\n\n- [x] 已完成任务\n- [ ] 未完成任务\n\n| 模型 | 分数 |\n| --- | --- |\n| 模型 A | 91 |\n\n```html\n<script>alert('code')</script>\n```\n\n[资料](https://example.com/news?a=1&b=2) [邮件](mailto:reader@example.com)\n\n[^note]: 脚注完整内容\n"
+	a.Body = "# 正文重复标题\n\n正文 Setext 标题\n===\n\n## Markdown 小标题\n\n正文 **加粗** 与 ~~删除线~~，引用脚注[^note]。\n\n> Markdown 引用内容\n\n- [x] 已完成任务\n- [ ] 未完成任务\n\n| 模型 | 分数 |\n| --- | --- |\n| 模型 A | 91 |\n\n```html\n<script>alert('code')</script>\n```\n\n[资料](https://example.com/news?a=1&b=2) [邮件](mailto:reader@example.com)\n\n[^note]: 脚注完整内容\n"
 	a.Sections = []Section{{Heading: "旧版完整内容", Text: "第一行旧版文本\n第二行保留", SourceNumbers: []int{1, 2}, Table: &Table{Caption: "旧版表格标题", Columns: []string{"指标", "结果"}, Rows: [][]string{{"准确率", "97.5%"}, {"延迟", "25ms"}}, Note: "表格口径说明"}, Chart: &Chart{Title: "旧版图表标题", Unit: "分", Max: 100, Rows: []ChartRow{{Label: "评估组 A", Value: 82.5}, {Label: "评估组 B", Value: 93}}, Note: "图表样本说明"}}}
 	a.Quote = "主观编辑观点，不是测评成绩"
 	a.Sources = append(a.Sources, Source{Label: "第二份社区资料", URL: "https://example.org/thread", Kind: "community"})
@@ -148,6 +151,11 @@ func TestSEOArticleFullLegacyMarkdownAndStructuredData(t *testing.T) {
 	if strings.Contains(page, `<input`) || strings.Contains(page, `utm_campaign`) || strings.Contains(page, `<script>alert`) {
 		t.Fatal("form/unsafe code/tracking URL leaked")
 	}
+	// Markdown H1 (ATX or setext) must not compete with the article-title H1.
+	if n := strings.Count(page, "<h1"); n != 1 {
+		t.Fatalf("article page has %d H1 elements, want 1", n)
+	}
+	seoRequireText(t, page, `<h2>正文重复标题</h2>`, `<h2>正文 Setext 标题</h2>`)
 	graph := seoGraph(t, page)
 	article := graph["Article"]
 	if article["headline"] != a.Title || article["description"] != a.Description || article["datePublished"] != a.PublishedAt || article["dateModified"] != a.UpdatedAt || article["url"] != "https://news.example.test/a/existing" || article["image"] != "https://news.example.test/media/test-image.png" {

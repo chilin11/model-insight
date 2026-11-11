@@ -48,6 +48,7 @@ p, small { text-wrap: pretty; }
 .container { width: calc(100% - 112px); max-width: 1248px; margin-inline: auto; }
 .skip-link { position: fixed; top: -80px; left: 16px; z-index: 100; padding: 14px 20px; background: var(--blue); color: #fff; border-radius: var(--radius); }
 .skip-link:focus { top: 12px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 .button { display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-height: 44px; padding: 11px 19px; border: 1px solid transparent; border-radius: var(--radius); font-size: 14px; line-height: 1.5; font-weight: 650; transition: background-color 140ms var(--ease-out), border-color 140ms var(--ease-out), color 140ms var(--ease-out), transform 140ms var(--ease-out); }
 .button:active:not(:disabled) { transform: translateY(1px); }
 .button svg { transition: transform 220ms var(--spring); }
@@ -296,7 +297,7 @@ p, small { text-wrap: pretty; }
 .reader-kicker { display: flex; align-items: center; justify-content: space-between; gap: 16px; color: var(--muted); font-size: 14px; font-weight: 600; }
 .reader-kicker > span:first-child { display: inline-flex; align-items: center; }
 .kicker-divider { margin-inline: 10px; color: #b3bccb; }
-.reader-heading h2 { margin: 20px 0 16px; font-size: 36px; font-weight: 850; line-height: 1.4; letter-spacing: -1px; }
+.reader-heading h1 { margin: 20px 0 16px; font-size: 36px; font-weight: 850; line-height: 1.4; letter-spacing: -1px; }
 .reader-description { margin: 0; color: var(--body); font-size: 17px; line-height: 1.9; }
 .reader-meta { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 22px; padding-bottom: 22px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 13px; line-height: 1.8; }
 .reader-meta > span:first-child { color: var(--ink); font-weight: 650; }
@@ -428,7 +429,7 @@ p, small { text-wrap: pretty; }
   .search-panel, .saved-panel, .about-panel { padding: 26px 24px; }
   .search-panel h2, .saved-panel h2, .about-panel h2 { font-size: 25px; }
   .reader-heading { padding: 28px 26px 22px; }
-  .reader-heading h2 { font-size: 28px; }
+  .reader-heading h1 { font-size: 28px; }
   .reader-body { padding: 0 26px 32px; }
   .reader-description { font-size: 16px; }
   .reader-section h3 { font-size: 20px; }
@@ -459,7 +460,7 @@ p, small { text-wrap: pretty; }
   .result-item strong { font-size: 15px; }
   .saved-item .result-item > svg { display: none; }
   .reader-heading { padding: 24px 20px 20px; }
-  .reader-heading h2 { font-size: 26px; }
+  .reader-heading h1 { font-size: 26px; }
   .reader-body { padding-inline: 20px; }
   .source-note { padding: 18px; }
   .source-note li { grid-template-columns: minmax(0, 1fr); gap: 4px; }

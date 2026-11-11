@@ -102,6 +102,12 @@ func renderSEOMarkdown(body string) string {
 			return ast.WalkContinue, nil
 		}
 		switch v := n.(type) {
+		case *ast.Heading:
+			// The page template owns the only H1 (the article title); body
+			// headings, including setext `===` ones, start at H2.
+			if v.Level < 2 {
+				v.Level = 2
+			}
 		case *ast.Link:
 			if dest, ok := seoURL(string(v.Destination), false); ok {
 				v.Destination = []byte(dest)

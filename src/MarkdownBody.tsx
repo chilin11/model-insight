@@ -120,6 +120,8 @@ export default function MarkdownBody({ body }: { body: string }) {
     skipHtml
     urlTransform={(url, key) => safeURL(url, key === 'src')}
     components={{
+      // The reader title is the page's only H1; body H1 (ATX or setext) renders as H2, matching the server fallback.
+      h1: ({ node: _node, ...props }) => <h2 {...props} />,
       a: ({ href, children, node: _node, ...props }) => href?.startsWith('#')
         ? <a {...props} href={href} onClick={event => scrollToFragment(event, href)}>{children}</a>
         : href ? <a {...props} href={href} target="_blank" rel="noopener noreferrer">{children}<span className="external-mark" aria-hidden="true">↗</span></a> : <span className="unsafe-link">{children}</span>,
